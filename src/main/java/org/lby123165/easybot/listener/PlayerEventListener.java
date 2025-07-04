@@ -3,6 +3,7 @@ package org.lby123165.easybot.listener;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -11,6 +12,10 @@ import org.lby123165.easybot.EasyBotFabric;
 import org.lby123165.easybot.bridge.BridgeClient;
 import org.lby123165.easybot.bridge.model.PlayerInfo;
 import org.lby123165.easybot.bridge.model.PlayerInfoWithRaw;
+
+// 为正则表达式添加必要的导入
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class PlayerEventListener {
 
@@ -84,7 +89,7 @@ public class PlayerEventListener {
             client.syncMessage(infoWithRaw, message.getContent().getString(), false);
         });
 
-        // 新增：玩家死亡事件
+        // 玩家死亡事件 (混合模式最终版)
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {
             if (!(entity instanceof ServerPlayerEntity player)) {
                 return; // 只关心玩家死亡
@@ -93,20 +98,58 @@ public class PlayerEventListener {
             BridgeClient client = EasyBotFabric.getBridgeClient();
             if (client == null || !client.isOpen()) return;
 
-            // 获取死亡信息
-            String deathMessage = player.getDamageTracker().getDeathMessage().getString();
-            String killerName = "null";
-            if (damageSource.getAttacker() != null) {
-                killerName = damageSource.getAttacker().getName().getString();
+            // 1. 获取完整的死亡消息文本
+            String deathMessage = damageSource.getDeathMessage(player).getString();
+            String killerName = "null"; // 默认值
+
+            // 2. API优先：尝试直接从 DamageSource 获取攻击者实体
+            Entity attacker = damageSource.getAttacker();
+            Entity source = damageSource.getSource();
+            Entity killerEntity = attacker != null ? attacker : source;
+
+            if (killerEntity instanceof LivingEntity) {
+                killerName = killerEntity.getName().getString();
+            } else {
+                // 3. 文本解析作为后备
+                // 3.1 首先尝试解析实体名称 (例如 "... whilst fighting a Skeleton")
+                // (?i) 表示不区分大小写
+                Pattern entityPattern = Pattern.compile("(?i)(?:by|fighting) ([\\w\\s.-]+)");
+                Matcher entityMatcher = entityPattern.matcher(deathMessage);
+                if (entityMatcher.find()) {
+                    killerName = entityMatcher.group(1).trim();
+                } else {
+                    // 3.2 如果没有实体，则解析环境死因
+                    if (deathMessage.contains("fell") || deathMessage.contains("hit the ground")) {
+                        killerName = "fall";
+                    } else if (deathMessage.contains("drowned")) {
+                        killerName = "drown";
+                    } else if (deathMessage.contains("burned") || deathMessage.contains("went up in flames")) {
+                        killerName = "fire";
+                    } else if (deathMessage.contains("blew up") || deathMessage.contains("was blown up")) {
+                        killerName = "explosion";
+                    } else if (deathMessage.contains("pricked to death") || deathMessage.contains("poked to death")) {
+                        killerName = "contact"; // 例如: 仙人掌, 甜浆果丛
+                    } else if (deathMessage.contains("starved to death")) {
+                        killerName = "starvation";
+                    } else if (deathMessage.contains("suffocated in a wall")) {
+                        killerName = "suffocation";
+                    } else if (deathMessage.contains("withered away")) {
+                        killerName = "wither";
+                    } else if (deathMessage.contains("froze to death")) {
+                        killerName = "freeze";
+                    } else {
+                        killerName = "environment"; // 最终的通用环境伤害
+                    }
+                }
             }
 
+            // 4. 上报最终结果
             PlayerInfo playerInfo = new PlayerInfo(
                     player.getName().getString(),
                     player.getUuid().toString(),
                     player.getDisplayName().getString(),
                     player.networkHandler.getLatency(),
                     player.getWorld().getRegistryKey().getValue().toString(),
-                    // FIX: Removed the stray "ax" typo here
                     player.getX(), player.getY(), player.getZ()
             );
 

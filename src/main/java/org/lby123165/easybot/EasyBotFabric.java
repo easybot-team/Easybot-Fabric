@@ -15,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
-import java.net.URISyntaxException;
 
 public class EasyBotFabric implements ModInitializer {
     public static final String MOD_ID = "easybotfabric";
@@ -23,11 +22,9 @@ public class EasyBotFabric implements ModInitializer {
 
     private static EasyBotFabric instance;
     private static EasyBotConfig config;
-    private static BridgeClient bridgeClient; // 保持抽象类型
+    private static BridgeClient bridgeClient;
     private static long serverStartTime;
     private CommandHandler commandHandler;
-
-    // 新增：用于存储服务器实例，以便在 reload 等方法中调用
     private static MinecraftServer minecraftServer;
 
     @Override
@@ -39,7 +36,6 @@ public class EasyBotFabric implements ModInitializer {
         LOGGER.info("Configuration loaded.");
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
-            // 修正：在服务器启动时，保存其实例
             EasyBotFabric.minecraftServer = server;
             serverStartTime = System.currentTimeMillis();
             connectWebSocket(server);
@@ -47,8 +43,9 @@ public class EasyBotFabric implements ModInitializer {
             LOGGER.info("Player event listeners registered.");
         });
 
+        // FIX: Use the new helper method for a clean shutdown on server stop
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-            disconnectWebSocket();
+            shutdownWebSocket();
         });
 
         this.commandHandler = new CommandHandler(this);
@@ -64,9 +61,9 @@ public class EasyBotFabric implements ModInitializer {
         config = EasyBotConfig.reload();
         LOGGER.info("Configuration reloaded.");
 
-        // 修正：不再调用不存在的 getServer()，而是使用我们保存的静态实例
         if (bridgeClient != null && minecraftServer != null) {
-            disconnectWebSocket();
+            // FIX: Use the new helper method to fully clean up the old client before reconnecting
+            shutdownWebSocket();
             connectWebSocket(minecraftServer);
         } else {
             LOGGER.warn("Cannot restart WebSocket client as the server instance is not available.");
@@ -76,30 +73,22 @@ public class EasyBotFabric implements ModInitializer {
     private void connectWebSocket(MinecraftServer server) {
         try {
             URI uri = new URI(config.ws);
-
-            // 1. 先创建 Client，但暂时不传入 Behavior
-            // 注意：现在我们 new 的是基于 Jetty 的 FabricBridgeClient
             BridgeClient newBridgeClient = new FabricBridgeClient(uri, null);
-
-            // 2. 创建 Behavior，并将刚创建的 Client 实例传给它
             BridgeBehavior behavior = new FabricBridgeBehavior(server, newBridgeClient);
-
-            // 3. 将创建好的 Behavior 设置回 Client
             newBridgeClient.setBehavior(behavior);
-
-            // 4. 赋值给静态变量并开始连接
             bridgeClient = newBridgeClient;
             bridgeClient.connect();
-
         } catch (Exception e) {
             LOGGER.error("An unexpected error occurred during WebSocket initialization", e);
         }
     }
 
-    private void disconnectWebSocket() {
+    // FIX: Renamed from disconnectWebSocket to better reflect its purpose
+    private void shutdownWebSocket() {
         if (bridgeClient != null) {
-            LOGGER.info("Closing WebSocket connection...");
-            bridgeClient.disconnect();
+            LOGGER.info("Shutting down WebSocket connection...");
+            // This now correctly calls the shutdown method we added to the interface
+            bridgeClient.shutdown();
             bridgeClient = null;
         }
     }

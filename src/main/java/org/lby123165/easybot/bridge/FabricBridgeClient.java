@@ -42,6 +42,7 @@ public class FabricBridgeClient extends BridgeClient {
         super(behavior);
         this.serverUri = serverUri;
         this.jettyClient = new WebSocketClient();
+        // FIX: The executor is created once and lives for the duration of the client object.
         this.executor = Executors.newSingleThreadExecutor();
         setDebug(EasyBotFabric.getConfig().debug);
     }
@@ -119,7 +120,7 @@ public class FabricBridgeClient extends BridgeClient {
 
     @Override
     public CompletableFuture<PlayerLoginResultPacket> login(org.lby123165.easybot.bridge.model.PlayerInfo playerInfo) {
-        return sendAndWaitForCallbackAsync("PLAYER_JOIN", new OnPlayerJoinPacket(playerInfo, ""), PlayerLoginResultPacket.class);
+        return sendAndWaitForCallbackAsync("PLAYER_JOIN", new OnPlayerJoinPacket(playerInfo), PlayerLoginResultPacket.class);
     }
 
     @Override
@@ -127,7 +128,6 @@ public class FabricBridgeClient extends BridgeClient {
         SyncMessagePacket packet = new SyncMessagePacket(playerInfo, message, useCommand);
         JsonObject json = GSON.toJsonTree(packet).getAsJsonObject();
         json.addProperty("exec_op", "SYNC_MESSAGE");
-        // 修正：添加占位符 callback_id
         json.addProperty("callback_id", "0");
         sendMessage(json.toString());
     }
@@ -137,7 +137,6 @@ public class FabricBridgeClient extends BridgeClient {
         SyncEnterExitMessagePacket packet = new SyncEnterExitMessagePacket(playerInfo, isEnter);
         JsonObject json = GSON.toJsonTree(packet).getAsJsonObject();
         json.addProperty("exec_op", "SYNC_ENTER_EXIT_MESSAGE");
-        // 修正：添加占位符 callback_id
         json.addProperty("callback_id", "0");
         sendMessage(json.toString());
     }
@@ -147,14 +146,13 @@ public class FabricBridgeClient extends BridgeClient {
         SyncDeathMessagePacket packet = new SyncDeathMessagePacket(playerInfo, deathMessage, killerName);
         JsonObject json = GSON.toJsonTree(packet).getAsJsonObject();
         json.addProperty("exec_op", "SYNC_DEATH_MESSAGE");
-        // 修正：添加占位符 callback_id
         json.addProperty("callback_id", "0");
         sendMessage(json.toString());
     }
 
     @Override
     public void connect() {
-        if (isConnected.get()) {
+        if (isConnected.get() || executor.isShutdown()) {
             return;
         }
         executor.submit(() -> {
@@ -172,28 +170,43 @@ public class FabricBridgeClient extends BridgeClient {
         });
     }
 
+    /**
+     * FIX: This is now a "soft" disconnect, used for reconnects.
+     * It only cleans up connection-specific resources.
+     */
     @Override
     public void disconnect() {
+        if (heartbeatScheduler != null && !heartbeatScheduler.isShutdown()) {
+            heartbeatScheduler.shutdownNow();
+        }
+        if (session != null && session.isOpen()) {
+            session.close(1000, "Client reconnecting");
+        }
+    }
+
+    /**
+     * FIX: New method for a "hard" shutdown when the plugin is disabled.
+     * This will terminate all thread pools.
+     */
+    public void shutdown() {
+        LOGGER.info("Shutting down EasyBot bridge client...");
+        disconnect(); // Perform a soft disconnect first
+        if (timeoutScheduler != null && !timeoutScheduler.isShutdown()) {
+            timeoutScheduler.shutdownNow();
+        }
         try {
-            if (heartbeatScheduler != null && !heartbeatScheduler.isShutdown()) {
-                heartbeatScheduler.shutdownNow();
-            }
-            if (timeoutScheduler != null && !timeoutScheduler.isShutdown()) {
-                timeoutScheduler.shutdownNow();
-            }
-            if (session != null && session.isOpen()) {
-                session.close(1000, "Client shutting down");
-            }
             if (jettyClient.isStarted()) {
                 jettyClient.stop();
             }
-            if (executor != null && !executor.isShutdown()) {
-                executor.shutdownNow();
-            }
         } catch (Exception e) {
-            LOGGER.error("停止客户端时出错", e);
+            LOGGER.error("Error stopping Jetty client", e);
         }
+        if (executor != null && !executor.isShutdown()) {
+            executor.shutdownNow();
+        }
+        LOGGER.info("EasyBot bridge client has been shut down.");
     }
+
 
     @OnWebSocketConnect
     public void onConnect(Session session) {
@@ -207,15 +220,17 @@ public class FabricBridgeClient extends BridgeClient {
         LOGGER.info("连接关闭: {} - {}", statusCode, reason);
         isConnected.set(false);
         ready.set(false);
-        if (heartbeatScheduler != null) {
-            heartbeatScheduler.shutdownNow();
-        }
+        disconnect(); // Perform a soft disconnect
         scheduleReconnect();
     }
 
     @OnWebSocketError
     public void onError(Throwable cause) {
         LOGGER.error("连接遇到错误", cause);
+        isConnected.set(false);
+        ready.set(false);
+        disconnect(); // Perform a soft disconnect
+        // The onClose event will likely be triggered next, which will handle the reconnect.
     }
 
     @Override
@@ -239,8 +254,6 @@ public class FabricBridgeClient extends BridgeClient {
         sendMessage(GSON.toJson(packet));
     }
 
-
-
     private void startHeartbeat() {
         if (heartbeatScheduler != null && !heartbeatScheduler.isShutdown()) {
             heartbeatScheduler.shutdownNow();
@@ -256,6 +269,10 @@ public class FabricBridgeClient extends BridgeClient {
     }
 
     private void scheduleReconnect() {
+        if (executor.isShutdown()) {
+            LOGGER.warn("Executor is shut down, cannot schedule reconnect.");
+            return;
+        }
         CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS).execute(this::connect);
         LOGGER.info("5秒后将尝试重连...");
     }

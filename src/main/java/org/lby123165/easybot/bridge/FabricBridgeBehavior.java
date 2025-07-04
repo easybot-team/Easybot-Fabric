@@ -8,10 +8,13 @@ import net.minecraft.server.command.CommandOutput;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.Vec2f;
+import net.minecraft.util.math.Vec3d;
 import org.lby123165.easybot.bridge.message.*;
-import org.lby123165.easybot.bridge.model.FabricServerInfo; // 导入
+import org.lby123165.easybot.bridge.model.FabricServerInfo;
 import org.lby123165.easybot.bridge.model.PlayerInfo;
 import org.lby123165.easybot.bridge.packet.*;
+import org.lby123165.easybot.util.TextUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,23 +35,6 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         this.server = server;
         this.client = client;
     }
-
-    // 新增：实现 getInfo 方法
-    @Override
-    public FabricServerInfo getInfo() {
-        return new FabricServerInfo(this.server);
-    }
-
-    // 修正：handleGetServerInfo 现在调用 getInfo()
-    private void handleGetServerInfo(String callbackId, String execOp) {
-        FabricServerInfo payload = this.getInfo();
-        sendCallback(callbackId, execOp, payload);
-    }
-
-    // ... onMessage 和其他 handle 方法保持不变 ...
-    // ... (为了简洁，这里省略了其他未改变的方法，请保留您文件中的原有代码)
-
-    // vvv 请确保您文件中的其他方法都存在 vvv
 
     @Override
     public void onMessage(String rawJson) {
@@ -121,34 +107,7 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         }
     }
 
-    private void handleUnbindNotify(String rawJson) {
-        PlayerUnBindNotifyPacket packet = GSON.fromJson(rawJson, PlayerUnBindNotifyPacket.class);
-        ServerPlayerEntity player = server.getPlayerManager().getPlayer(packet.playerName);
-        if (player != null) {
-            server.execute(() -> player.networkHandler.disconnect(Text.of(packet.kickMessage)));
-            LOGGER.info("已将玩家 {} 踢出服务器，原因: 解绑账号", packet.playerName);
-        }
-    }
-
-    private void handleBindSuccessNotify(String rawJson) {
-        BindSuccessNotifyPacket packet = GSON.fromJson(rawJson, BindSuccessNotifyPacket.class);
-        String message = String.format("§a[EasyBot] 玩家 %s 成功绑定账号 %s (%s)", packet.playerName, packet.accountName, packet.accountId);
-        server.getPlayerManager().broadcast(Text.of(message), false);
-    }
-
-    private void handleSyncSettingsUpdated(String rawJson) {
-        UpdateSyncSettingsPacket packet = GSON.fromJson(rawJson, UpdateSyncSettingsPacket.class);
-        FabricClientProfile.setSyncMessageMode(packet.syncMode);
-        FabricClientProfile.setSyncMessageMoney(packet.syncMoney);
-        LOGGER.info("同步设置已更新: Mode={}, Money={}", packet.syncMode, packet.syncMoney);
-    }
-
-    private void handleGetPlayerList(String callbackId, String execOp) {
-        List<PlayerInfo> players = getPlayerList();
-        PlayerListPacket payload = new PlayerListPacket(players);
-        sendCallback(callbackId, execOp, payload);
-    }
-
+    // --- 远程命令执行 (最终修正版) ---
     private void handleRunCommand(String callbackId, String execOp, String rawJson) {
         RunCommandPacket packet = GSON.fromJson(rawJson, RunCommandPacket.class);
         String commandToRun = packet.command;
@@ -157,39 +116,57 @@ public class FabricBridgeBehavior extends BridgeBehavior {
             LOGGER.warn("PAPI is not yet implemented in Fabric version.");
         }
 
-        try {
-            final StringBuilder output = new StringBuilder();
-            CommandOutput commandOutput = new CommandOutput() {
-                @Override
-                public void sendMessage(Text message) {
-                    output.append(message.getString()).append("\n");
-                }
-                @Override
-                public boolean shouldReceiveFeedback() { return true; }
-                @Override
-                public boolean shouldTrackOutput() { return true; }
-                @Override
-                public boolean shouldBroadcastConsoleToOps() { return false; }
-            };
+        // 将整个命令执行逻辑调度到服务器主线程
+        this.server.execute(() -> {
+            try {
+                final StringBuilder output = new StringBuilder();
+                CommandOutput commandOutput = new CommandOutput() {
+                    @Override
+                    public void sendMessage(Text message) {
+                        output.append(message.getString()).append("\n");
+                    }
+                    @Override
+                    public boolean shouldReceiveFeedback() { return true; }
+                    @Override
+                    public boolean shouldTrackOutput() { return true; }
+                    @Override
+                    public boolean shouldBroadcastConsoleToOps() { return false; }
+                };
 
-            ServerCommandSource source = this.server.getCommandSource().withOutput(commandOutput).withSilent();
-            this.server.getCommandManager().executeWithPrefix(source, commandToRun);
+                // FIX: 创建一个全新的、虚拟的命令源，而不是修改服务器的默认源
+                ServerCommandSource source = new ServerCommandSource(
+                        commandOutput,
+                        Vec3d.of(server.getOverworld().getSpawnPos()),
+                        Vec2f.ZERO,
+                        server.getOverworld(),
+                        4, // Permission level 4 (console)
+                        "EasyBot",
+                        Text.of("EasyBot"),
+                        server,
+                        null
+                );
 
-            RunCommandResultPacket result = new RunCommandResultPacket(true, output.toString().trim());
-            sendCallback(callbackId, execOp, result);
+                // 在主线程中，此调用会同步执行完毕
+                this.server.getCommandManager().executeWithPrefix(source, commandToRun);
 
-        } catch (Exception e) {
-            LOGGER.error("执行指令 '{}' 时出错", commandToRun, e);
-            RunCommandResultPacket result = new RunCommandResultPacket(false, e.getMessage());
-            sendCallback(callbackId, execOp, result);
-        }
+                // 现在，output 包含了完整的命令执行结果
+                RunCommandResultPacket result = new RunCommandResultPacket(true, output.toString().trim());
+                sendCallback(callbackId, execOp, result);
+
+            } catch (Exception e) {
+                LOGGER.error("执行指令 '{}' 时出错", commandToRun, e);
+                RunCommandResultPacket result = new RunCommandResultPacket(false, e.getMessage());
+                sendCallback(callbackId, execOp, result);
+            }
+        });
     }
 
+    // --- 其他方法保持不变 ---
     private void handleSendToChat(String rawJson) {
         SendToChatPacket packet = GSON.fromJson(rawJson, SendToChatPacket.class);
 
         if (packet.extra == null || packet.extra.isJsonNull()) {
-            server.getPlayerManager().broadcast(Text.of(packet.text), false);
+            server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(packet.text), false);
             return;
         }
 
@@ -208,8 +185,53 @@ public class FabricBridgeBehavior extends BridgeBehavior {
 
         } catch (Exception e) {
             LOGGER.error("解析富文本消息时出错，将发送纯文本: {}", packet.text, e);
-            server.getPlayerManager().broadcast(Text.of(packet.text), false);
+            server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(packet.text), false);
         }
+    }
+
+    @Override
+    public void SyncToChatExtra(List<Segment> segments, String text) {
+        if (server != null && server.getPlayerManager() != null) {
+            server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(text), false);
+        }
+    }
+
+    private void handleUnbindNotify(String rawJson) {
+        PlayerUnBindNotifyPacket packet = GSON.fromJson(rawJson, PlayerUnBindNotifyPacket.class);
+        ServerPlayerEntity player = server.getPlayerManager().getPlayer(packet.playerName);
+        if (player != null) {
+            server.execute(() -> player.networkHandler.disconnect(Text.of(packet.kickMessage)));
+            LOGGER.info("已将玩家 {} 踢出服务器，原因: 解绑账号", packet.playerName);
+        }
+    }
+
+    private void handleBindSuccessNotify(String rawJson) {
+        BindSuccessNotifyPacket packet = GSON.fromJson(rawJson, BindSuccessNotifyPacket.class);
+        String message = String.format("§a[EasyBot] 玩家 %s 成功绑定账号 %s (%s)", packet.playerName, packet.accountName, packet.accountId);
+        server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(message), false);
+    }
+
+    private void handleSyncSettingsUpdated(String rawJson) {
+        UpdateSyncSettingsPacket packet = GSON.fromJson(rawJson, UpdateSyncSettingsPacket.class);
+        FabricClientProfile.setSyncMessageMode(packet.syncMode);
+        FabricClientProfile.setSyncMessageMoney(packet.syncMoney);
+        LOGGER.info("同步设置已更新: Mode={}, Money={}", packet.syncMode, packet.syncMoney);
+    }
+
+    private void handleGetPlayerList(String callbackId, String execOp) {
+        List<PlayerInfo> players = getPlayerList();
+        PlayerListPacket payload = new PlayerListPacket(players);
+        sendCallback(callbackId, execOp, payload);
+    }
+
+    @Override
+    public FabricServerInfo getInfo() {
+        return new FabricServerInfo(this.server);
+    }
+
+    private void handleGetServerInfo(String callbackId, String execOp) {
+        FabricServerInfo payload = this.getInfo();
+        sendCallback(callbackId, execOp, payload);
     }
 
     private void sendCallback(String callbackId, String execOp, Object data) {
@@ -248,13 +270,6 @@ public class FabricBridgeBehavior extends BridgeBehavior {
             }
         }
         return players;
-    }
-
-    @Override
-    public void SyncToChatExtra(List<Segment> segments, String text) {
-        if (server != null && server.getPlayerManager() != null) {
-            server.getPlayerManager().broadcast(Text.of(text), false);
-        }
     }
 
     @Override
