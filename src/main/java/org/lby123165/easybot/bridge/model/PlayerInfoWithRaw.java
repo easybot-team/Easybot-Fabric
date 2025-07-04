@@ -7,7 +7,17 @@ public class PlayerInfoWithRaw extends PlayerInfo {
     public String playerNameRaw;
 
     public PlayerInfoWithRaw(PlayerInfo base, String rawName) {
-        super(base.playerName, base.uuid, base.displayName, base.latency, base.world, base.x, base.y, base.z);
+        // FIX: Use the public getters from the base object
+        super(
+                base.getPlayerName(),
+                base.getUuid(),
+                base.getDisplayName(),
+                base.getLatency(),
+                base.getWorld(),
+                base.getX(),
+                base.getY(),
+                base.getZ()
+        );
         this.playerNameRaw = rawName;
     }
 }

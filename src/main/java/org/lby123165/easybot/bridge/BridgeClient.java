@@ -32,6 +32,9 @@ public abstract class BridgeClient {
     public abstract void syncMessage(PlayerInfoWithRaw playerInfo, String message, boolean useCommand);
     public abstract void syncEnterExit(PlayerInfoWithRaw playerInfo, boolean isEnter);
 
+    // Add this new method
+    public abstract void syncDeathMessage(PlayerInfoWithRaw playerInfo, String deathMessage, String killerName);
+
 
     // --- 辅助方法 ---
     public boolean isDebug() {

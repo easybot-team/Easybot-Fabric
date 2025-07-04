@@ -8,6 +8,7 @@ import org.eclipse.jetty.websocket.api.annotations.*;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.lby123165.easybot.EasyBotFabric;
+import org.lby123165.easybot.bridge.model.PlayerInfoWithRaw;
 import org.lby123165.easybot.bridge.packet.*;
 import org.lby123165.easybot.config.EasyBotConfig;
 import org.slf4j.Logger;
@@ -28,7 +29,6 @@ public class FabricBridgeClient extends BridgeClient {
     private final ExecutorService executor;
     private final URI serverUri;
 
-    // 新增：用于处理带回调的请求
     private final ConcurrentHashMap<String, CompletableFuture<String>> callbackTasks = new ConcurrentHashMap<>();
     private final ScheduledExecutorService timeoutScheduler = Executors.newSingleThreadScheduledExecutor();
 
@@ -46,13 +46,11 @@ public class FabricBridgeClient extends BridgeClient {
         setDebug(EasyBotFabric.getConfig().debug);
     }
 
-    // 新增：发送请求并异步等待回调的核心方法
     public <T> CompletableFuture<T> sendAndWaitForCallbackAsync(String execOp, Object data, Class<T> responseType) {
         String callbackId = UUID.randomUUID().toString();
         CompletableFuture<String> future = new CompletableFuture<>();
         callbackTasks.put(callbackId, future);
 
-        // 构建请求包
         JsonObject packet = new JsonObject();
         packet.addProperty("op", 4);
         packet.addProperty("exec_op", execOp);
@@ -65,7 +63,6 @@ public class FabricBridgeClient extends BridgeClient {
         }
         sendMessage(packet.toString());
 
-        // 设置超时
         ScheduledFuture<?> timeoutFuture = timeoutScheduler.schedule(() -> {
             CompletableFuture<String> removedFuture = callbackTasks.remove(callbackId);
             if (removedFuture != null) {
@@ -73,7 +70,6 @@ public class FabricBridgeClient extends BridgeClient {
             }
         }, 10, TimeUnit.SECONDS);
 
-        // 返回一个转换了类型的 Future
         return future.thenApply(result -> {
             timeoutFuture.cancel(false);
             return GSON.fromJson(result, responseType);
@@ -121,11 +117,8 @@ public class FabricBridgeClient extends BridgeClient {
         }
     }
 
-    // --- 新增的事件上报方法 ---
-
     @Override
     public CompletableFuture<PlayerLoginResultPacket> login(org.lby123165.easybot.bridge.model.PlayerInfo playerInfo) {
-        // MCDR 实现中，这个操作的 exec_op 是 PLAYER_JOIN
         return sendAndWaitForCallbackAsync("PLAYER_JOIN", new OnPlayerJoinPacket(playerInfo, ""), PlayerLoginResultPacket.class);
     }
 
@@ -134,6 +127,8 @@ public class FabricBridgeClient extends BridgeClient {
         SyncMessagePacket packet = new SyncMessagePacket(playerInfo, message, useCommand);
         JsonObject json = GSON.toJsonTree(packet).getAsJsonObject();
         json.addProperty("exec_op", "SYNC_MESSAGE");
+        // 修正：添加占位符 callback_id
+        json.addProperty("callback_id", "0");
         sendMessage(json.toString());
     }
 
@@ -142,11 +137,21 @@ public class FabricBridgeClient extends BridgeClient {
         SyncEnterExitMessagePacket packet = new SyncEnterExitMessagePacket(playerInfo, isEnter);
         JsonObject json = GSON.toJsonTree(packet).getAsJsonObject();
         json.addProperty("exec_op", "SYNC_ENTER_EXIT_MESSAGE");
+        // 修正：添加占位符 callback_id
+        json.addProperty("callback_id", "0");
         sendMessage(json.toString());
     }
 
-    // --- 其他方法保持不变 ---
-    // vvv 为了简洁，这里省略了其他未改变的方法，请保留您文件中的原有代码 vvv
+    @Override
+    public void syncDeathMessage(PlayerInfoWithRaw playerInfo, String deathMessage, String killerName) {
+        SyncDeathMessagePacket packet = new SyncDeathMessagePacket(playerInfo, deathMessage, killerName);
+        JsonObject json = GSON.toJsonTree(packet).getAsJsonObject();
+        json.addProperty("exec_op", "SYNC_DEATH_MESSAGE");
+        // 修正：添加占位符 callback_id
+        json.addProperty("callback_id", "0");
+        sendMessage(json.toString());
+    }
+
     @Override
     public void connect() {
         if (isConnected.get()) {
@@ -233,6 +238,8 @@ public class FabricBridgeClient extends BridgeClient {
         IdentifyPacket packet = new IdentifyPacket(config.token, pluginVersion, serverDescription);
         sendMessage(GSON.toJson(packet));
     }
+
+
 
     private void startHeartbeat() {
         if (heartbeatScheduler != null && !heartbeatScheduler.isShutdown()) {
