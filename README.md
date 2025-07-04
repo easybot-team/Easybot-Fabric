@@ -1,79 +1,37 @@
-# EasyBot-Fabric
+# EasyBot for Fabric
 
-EasyBot-Fabric是一个Minecraft Fabric模组，用于通过WebSocket将Minecraft服务器与聊天平台（如QQ、Discord等）连接起来。
+![Minecraft](https://img.shields.io/badge/Minecraft-1.19.x%20|%201.20.x-green.svg) ![Fabric API](https://img.shields.io/badge/Fabric%20API-Required-blue.svg) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-## 功能特点
+**EasyBot for Fabric** 是强大的跨平台机器人框架 [EasyBot](https://github.com/easybot-team) 的官方 Fabric 服务端插件。它作为一个桥梁，将您的 Fabric 服务器无缝连接到 EasyBot 主程序，从而实现跨服务器、跨平台（如 QQ 群）的消息同步、数据互通和统一管理。
 
-- 通过WebSocket与聊天平台桥接服务连接
-- 在Minecraft服务器和聊天平台之间同步消息
-- 支持从聊天平台执行Minecraft服务器命令
-- 可配置的消息格式和功能选项
+## ✨ 功能特性
 
-## 安装要求
+-   **无缝消息同步**: 实时同步游戏内聊天到其他平台，并将其他平台的消息以丰富的格式（支持 `@玩家`、可点击的图片链接等）展示在游戏中。
+-   **事件监听与上报**: 实时监听并上报玩家的加入、退出、死亡等关键事件，为主程序提供数据支持。
+-   **远程命令执行**: 允许管理员通过主程序远程在 Fabric 服务器上执行指令，并获取返回结果。
+-   **服务器状态监控**: 主程序可以随时获取服务器的在线玩家列表、版本等详细信息。
+-   **内置管理命令**: 提供 `/easybot` 命令，方便在游戏内直接管理插件。
 
-- Minecraft 1.20.1
-- Fabric Loader 0.14.21+
-- Fabric API
-- Java 17+
+## 🚀 安装与配置
 
-## 安装方法
+### 1. 前置要求
+- 您的服务器已安装 Fabric Loader。
+- 您已在某处（可以是同一台机器或云服务器）部署并运行了 EasyBot 主程序。
 
-1. 安装[Fabric Loader](https://fabricmc.net/use/)和[Fabric API](https://www.curseforge.com/minecraft/mc-mods/fabric-api)
-2. 下载EasyBot-Fabric的最新版本并放入服务器的`mods`文件夹
-3. 启动服务器，模组将自动生成配置文件
-4. 根据需要编辑配置文件
+### 2. 安装插件
+1.  前往 Releases 页面，下载与您服务器 Minecraft 版本对应的 `.jar` 文件。
+2.  将下载的 `.jar` 文件放入您服务器的 `mods` 文件夹中。
+3.  启动一次服务器，插件会自动在 `config` 目录下生成 `easybot-fabric.json` 配置文件。
 
-## 配置
+### 3. 配置插件
+关闭服务器，编辑 `config/easybot-fabric.json` 文件，然后重新启动。
 
-首次运行后，配置文件将在`config/easybotfabric.json`生成。你可以编辑以下选项：
+- **`serverUrl`**: EasyBot 主程序 WebSocket 服务的地址。
+- **`authToken`**: 用于和主程序认证的令牌，必须与主程序设置的一致。
+- **`debug`**: 是否开启调试模式。开启后，控制台会输出详细的通信日志，便于排查问题。
 
-```json
-{
-  "websocket": {
-    "enabled": true,
-    "uri": "ws://localhost:8080/minecraft",
-    "reconnectDelay": 5000
-  },
-  "messages": {
-    "playerJoin": true,
-    "playerLeave": true,
-    "playerChat": true,
-    "playerDeath": true,
-    "serverStart": true,
-    "serverStop": true
-  }
-}
-```
+## 🎮 命令列表
 
-## 命令
+- `/easybot reload`: 重载配置文件。
+- `/easybot status`: 查看与主程序的连接状态。
 
-- `/easybot reload` - 重新加载配置文件
-- `/easybot connect` - 连接到WebSocket服务器
-- `/easybot disconnect` - 断开与WebSocket服务器的连接
-- `/easybot status` - 显示连接状态
-
-## 开发
-
-### 构建项目
-
-```bash
-./gradlew build
-```
-
-构建完成后，JAR文件将位于`build/libs/`目录中。
-
-### 设置开发环境
-
-```bash
-./gradlew genSources
-./gradlew idea  # 对于IntelliJ IDEA
-./gradlew eclipse  # 对于Eclipse
-```
-
-## 许可证
-
-本项目采用MIT许可证 - 详见[LICENSE](LICENSE)文件。
-
-## 贡献
-
-欢迎提交问题报告和拉取请求#
