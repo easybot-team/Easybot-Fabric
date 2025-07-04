@@ -19,7 +19,7 @@ public class ServerInfo {
         this.motd = motd;
     }
 
-    // Getters
+    // 获取器
     public String getVersion() { return version; }
     public int getOnlinePlayers() { return onlinePlayers; }
     public int getMaxPlayers() { return maxPlayers; }

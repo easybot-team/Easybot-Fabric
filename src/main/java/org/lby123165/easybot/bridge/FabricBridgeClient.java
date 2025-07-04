@@ -67,7 +67,7 @@ public class FabricBridgeClient extends BridgeClient {
         ScheduledFuture<?> timeoutFuture = timeoutScheduler.schedule(() -> {
             CompletableFuture<String> removedFuture = callbackTasks.remove(callbackId);
             if (removedFuture != null) {
-                removedFuture.completeExceptionally(new TimeoutException("Waiting for EasyBot callback timed out!"));
+                removedFuture.completeExceptionally(new TimeoutException("等待 EasyBot 回调超时！"));
             }
         }, 10, TimeUnit.SECONDS);
 
@@ -171,8 +171,8 @@ public class FabricBridgeClient extends BridgeClient {
     }
 
     /**
-     * FIX: This is now a "soft" disconnect, used for reconnects.
-     * It only cleans up connection-specific resources.
+     * 修正：现在这是一种 软 断开连接，用于重新连接。
+     * 它只清理特定于连接的资源。
      */
     @Override
     public void disconnect() {
@@ -180,17 +180,17 @@ public class FabricBridgeClient extends BridgeClient {
             heartbeatScheduler.shutdownNow();
         }
         if (session != null && session.isOpen()) {
-            session.close(1000, "Client reconnecting");
+            session.close(1000, "客户端重新连接");
         }
     }
 
     /**
-     * FIX: New method for a "hard" shutdown when the plugin is disabled.
-     * This will terminate all thread pools.
+     * 修正：插件禁用时 硬 关闭的新方法。
+     * 这将终止所有线程池。
      */
     public void shutdown() {
-        LOGGER.info("Shutting down EasyBot bridge client...");
-        disconnect(); // Perform a soft disconnect first
+        LOGGER.info("正在关闭EasyBot桥接客户端...");
+        disconnect(); // 先执行软断开连接
         if (timeoutScheduler != null && !timeoutScheduler.isShutdown()) {
             timeoutScheduler.shutdownNow();
         }
@@ -199,12 +199,12 @@ public class FabricBridgeClient extends BridgeClient {
                 jettyClient.stop();
             }
         } catch (Exception e) {
-            LOGGER.error("Error stopping Jetty client", e);
+            LOGGER.error("停止Jetty客户端时出错", e);
         }
         if (executor != null && !executor.isShutdown()) {
             executor.shutdownNow();
         }
-        LOGGER.info("EasyBot bridge client has been shut down.");
+        LOGGER.info("EasyBot桥接客户端已关闭。");
     }
 
 
@@ -270,7 +270,7 @@ public class FabricBridgeClient extends BridgeClient {
 
     private void scheduleReconnect() {
         if (executor.isShutdown()) {
-            LOGGER.warn("Executor is shut down, cannot schedule reconnect.");
+            LOGGER.warn("执行器已关闭，无法安排重连。");
             return;
         }
         CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS).execute(this::connect);

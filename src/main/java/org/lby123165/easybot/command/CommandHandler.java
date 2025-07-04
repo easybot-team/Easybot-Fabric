@@ -25,13 +25,13 @@ public class CommandHandler {
     }
 
     private int executeReload(CommandContext<ServerCommandSource> context) {
-        context.getSource().sendFeedback(() -> Text.literal("§eReloading EasyBot configuration..."), true);
+        context.getSource().sendFeedback(() -> Text.literal("§eREasyBot正在重载配置"), true);
         try {
             mod.reload();
-            context.getSource().sendFeedback(() -> Text.literal("§aEasyBot reloaded successfully!"), true);
+            context.getSource().sendFeedback(() -> Text.literal("§aEasyBot配置重载成功"), true);
         } catch (Exception e) {
-            EasyBotFabric.LOGGER.error("Failed to reload EasyBot", e);
-            context.getSource().sendError(Text.literal("§cFailed to reload EasyBot. Check the server console for errors."));
+            EasyBotFabric.LOGGER.error("EasyBot重载失败", e);
+            context.getSource().sendError(Text.literal("§c重新加载 EasyBot 失败。检查服务器控制台是否有错误。"));
         }
         return 1; // 代表成功
     }

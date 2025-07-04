@@ -27,11 +27,11 @@ public class EasyBotConfig {
 
     //<editor-fold desc="Config Fields">
     // --- Config fields (these now serve only as a final fallback in code) ---
-    public String ws = "ws://v4-home.lby123165.cn:1501/bridge";
+    public String ws = "ws://127.0.0.1:26690/bridge";
     public boolean debug = false;
     public int reconnectInterval = 5000;
     public String token = "YOUR_TOKEN_HERE";
-    public String serverName = "default_server";
+    public String serverName = "fabric_server";
     public boolean ignoreError = false;
     public boolean updateNotify = true;
     public boolean enableWhiteList = false;
@@ -102,13 +102,13 @@ public class EasyBotConfig {
     //</editor-fold>
 
     /**
-     * Loads the configuration from disk. If the file doesn't exist, it copies the default from resources.
-     * @return An instance of EasyBotConfig.
+     * 从磁盘加载配置。如果文件不存在，则从资源中复制默认配置。
+     * 返回 EasyBotConfig 的实例
      */
     public static EasyBotConfig load() {
         // Ensure the config file exists. If not, create it from embedded resources.
         if (!Files.exists(CONFIG_PATH)) {
-            LOGGER.info("Configuration file not found. Creating a new one from embedded resources...");
+            LOGGER.info("未找到配置文件。从嵌入式资源中创建一个新文件...");
             createDefaultConfigFromResources();
         }
 
@@ -117,31 +117,31 @@ public class EasyBotConfig {
             String content = Files.readString(CONFIG_PATH);
             EasyBotConfig loadedConfig = GSON.fromJson(content, EasyBotConfig.class);
             if (loadedConfig != null) {
-                LOGGER.info("Successfully loaded configuration from {}.", CONFIG_PATH);
+                LOGGER.info("成功从 {} 加载配置.", CONFIG_PATH);
                 return loadedConfig;
             }
         } catch (JsonSyntaxException e) {
             LOGGER.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-            LOGGER.error("!!! FAILED TO PARSE CONFIG FILE: {}", CONFIG_PATH);
-            LOGGER.error("!!! Your config file has a syntax error (e.g., a missing comma or quote).");
-            LOGGER.error("!!! The mod will use default settings for this session, but your file has NOT been overwritten.");
-            LOGGER.error("!!! Please fix the error in your config file and restart the server.");
-            LOGGER.error("!!! Error details: {}", e.getMessage());
+            LOGGER.error("!!! 解析配置文件失败: {}", CONFIG_PATH);
+            LOGGER.error("!!! 您的配置文件存在语法错误（如缺少逗号或引号）。");
+            LOGGER.error("!!! MOD 将在此会话中使用默认设置，但您的文件并未被覆盖。");
+            LOGGER.error("!!! 请修复配置文件中的错误并重新启动服务器。");
+            LOGGER.error("!!! 错误详情： {}", e.getMessage());
             LOGGER.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         } catch (IOException e) {
-            LOGGER.error("Could not read config file at {}. Please check file permissions. Using default values for this session.", CONFIG_PATH, e);
+            LOGGER.error("无法读取位于的配置文件 {}. 请检查文件权限。此会话使用默认值。", CONFIG_PATH, e);
         }
 
-        // If we reach here, loading failed. Fallback to in-memory defaults to prevent a crash.
-        LOGGER.warn("Using internal default values for this session.");
+        // 如果我们到达这里，则加载失败。回退到内存中的默认值，以防崩溃。   ——DEEPL翻译
+        LOGGER.warn("使用该会话的内部默认值。");
         return new EasyBotConfig();
     }
 
     /**
-     * Finds the default config file in the mod's resources and copies it to the config directory.
+     * 在 MOD 资源中查找默认配置文件，并将其复制到配置目录。
      */
     private static void createDefaultConfigFromResources() {
-        // Use the constant from the main class for consistency.
+        // 使用主类中的常量，以保持一致性。
         Optional<Path> resourcePath = FabricLoader.getInstance()
                 .getModContainer(EasyBotFabric.MOD_ID)
                 .flatMap(container -> container.findPath(CONFIG_FILE_NAME));
@@ -151,33 +151,33 @@ public class EasyBotConfig {
                 Files.createDirectories(CONFIG_PATH.getParent());
                 Files.copy(stream, CONFIG_PATH, StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
-                LOGGER.error("Failed to copy default config from resources to {}.", CONFIG_PATH, e);
+                LOGGER.error("将默认配置从资源复制到 {}.", CONFIG_PATH, e);
             }
         } else {
-            LOGGER.error("Could not find the default config file '{}' inside the mod JAR! A blank one will be created.", CONFIG_FILE_NAME);
+            LOGGER.error("找不到默认配置文件 '{}' 在 mod JAR 内！将创建一个空白的 JAR。", CONFIG_FILE_NAME);
             // As a final fallback, create a config from the hardcoded defaults.
             new EasyBotConfig().save();
         }
     }
 
     /**
-     * Saves the current config instance to disk. (Not typically needed unless modified programmatically).
+     * 将当前配置实例保存到磁盘。(除非以编程方式修改，否则一般不需要）。    ——DEEPL翻译
      */
     public void save() {
         try {
             Files.createDirectories(CONFIG_PATH.getParent());
             Files.writeString(CONFIG_PATH, GSON.toJson(this));
         } catch (IOException e) {
-            LOGGER.error("Failed to save config to {}", CONFIG_PATH, e);
+            LOGGER.error("未能将配置保存到 {}", CONFIG_PATH, e);
         }
     }
 
     /**
-     * Reloads the configuration from disk.
-     * @return A new config instance.
+     * 从磁盘重新读取配置。
+     * @return 一个新的配置实例。    ——DEEPL翻译
      */
     public static EasyBotConfig reload() {
-        LOGGER.info("Reloading configuration...");
+        LOGGER.info("正在重新加载配置...");
         return load();
     }
 }

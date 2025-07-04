@@ -31,7 +31,7 @@ public class PlayerInfo {
         this.z = z;
     }
 
-    // Add public getters for all fields
+    // 为所有字段添加公共获取器
     public String getPlayerName() { return playerName; }
     public String getUuid() { return uuid; }
     public String getDisplayName() { return displayName; }

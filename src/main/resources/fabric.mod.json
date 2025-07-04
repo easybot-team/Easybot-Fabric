@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "easybotfabric",
-  "version": "1.0.0",
+  "version": "0.1-beta",
   "name": "EasyBot Fabric",
   "description": "一个基于Fabric的机器人插件，支持消息同步等功能。",
   "authors": ["lby123165"],
@@ -17,6 +17,6 @@
   },
   "depends": {
     "fabricloader": ">=0.14.0",
-    "minecraft": ">=1.20.0"
+    "minecraft": ">=1.19"
   }
 } 

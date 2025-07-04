@@ -7,7 +7,11 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandOutput;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.ClickEvent;
+import net.minecraft.text.HoverEvent;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.Vec3d;
 import org.lby123165.easybot.bridge.message.*;
@@ -107,16 +111,14 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         }
     }
 
-    // --- 远程命令执行 (最终修正版) ---
     private void handleRunCommand(String callbackId, String execOp, String rawJson) {
         RunCommandPacket packet = GSON.fromJson(rawJson, RunCommandPacket.class);
         String commandToRun = packet.command;
 
         if (packet.enablePapi && FabricClientProfile.isPapiSupported()) {
-            LOGGER.warn("PAPI is not yet implemented in Fabric version.");
+            LOGGER.warn("Fabric 版本完成PAPI支持。");
         }
 
-        // 将整个命令执行逻辑调度到服务器主线程
         this.server.execute(() -> {
             try {
                 final StringBuilder output = new StringBuilder();
@@ -133,7 +135,6 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                     public boolean shouldBroadcastConsoleToOps() { return false; }
                 };
 
-                // FIX: 创建一个全新的、虚拟的命令源，而不是修改服务器的默认源
                 ServerCommandSource source = new ServerCommandSource(
                         commandOutput,
                         Vec3d.of(server.getOverworld().getSpawnPos()),
@@ -146,10 +147,8 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                         null
                 );
 
-                // 在主线程中，此调用会同步执行完毕
                 this.server.getCommandManager().executeWithPrefix(source, commandToRun);
 
-                // 现在，output 包含了完整的命令执行结果
                 RunCommandResultPacket result = new RunCommandResultPacket(true, output.toString().trim());
                 sendCallback(callbackId, execOp, result);
 
@@ -161,39 +160,100 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         });
     }
 
-    // --- 其他方法保持不变 ---
     private void handleSendToChat(String rawJson) {
-        SendToChatPacket packet = GSON.fromJson(rawJson, SendToChatPacket.class);
+        // 确保所有逻辑都在服务器主线程中运行，以避免任何并发问题
+        server.execute(() -> {
+            try {
+                LOGGER.info("[EasyBot-Debug] 接收到的 SEND_TO_CHAT 有效负载: {}", rawJson);
 
-        if (packet.extra == null || packet.extra.isJsonNull()) {
-            server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(packet.text), false);
-            return;
-        }
+                JsonObject packetJson = GSON.fromJson(rawJson, JsonObject.class);
 
-        try {
-            List<Segment> segments = StreamSupport.stream(packet.extra.spliterator(), false)
-                    .map(JsonElement::getAsJsonObject)
-                    .map(obj -> {
-                        SegmentType type = SegmentType.fromValue(obj.get("type").getAsInt());
-                        Class<? extends Segment> segmentClass = Segment.getSegmentClass(type);
-                        return segmentClass != null ? GSON.fromJson(obj, segmentClass) : null;
-                    })
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+                JsonElement extraElement = packetJson.get("extra");
+                String text = packetJson.has("text") ? packetJson.get("text").getAsString() : "";
 
-            SyncToChatExtra(segments, packet.text);
+                // 检查 'extra' 字段是否包含有效的富文本内容
+                boolean hasRichContent = extraElement != null && !extraElement.isJsonNull() && extraElement.isJsonArray() && !extraElement.getAsJsonArray().isEmpty();
 
-        } catch (Exception e) {
-            LOGGER.error("解析富文本消息时出错，将发送纯文本: {}", packet.text, e);
-            server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(packet.text), false);
-        }
+                LOGGER.info("[EasyBot-Debug] 已解析信息。文本： '{}', 富文本内容： {}", text, hasRichContent);
+
+                if (!hasRichContent) {
+                    LOGGER.info("[EasyBot-Debug] 以简单的文本信息形式进行广播。");
+                    if (text != null && !text.isEmpty()) {
+                        server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(text), false);
+                    } else {
+                        LOGGER.warn("[EasyBot-Debug] 简单的文字信息是空的，不是广播");
+                    }
+                    return;
+                }
+
+                // 如果 'extra' 是一个非空数组，则作为富文本处理
+                LOGGER.info("[EasyBot-Debug] 以富文本信息形式广播.");
+                List<Segment> segments = StreamSupport.stream(extraElement.getAsJsonArray().spliterator(), false)
+                        .map(JsonElement::getAsJsonObject)
+                        .map(obj -> {
+                            SegmentType type = SegmentType.fromValue(obj.get("type").getAsInt());
+                            Class<? extends Segment> segmentClass = Segment.getSegmentClass(type);
+                            if (segmentClass != null) {
+                                Segment seg = GSON.fromJson(obj, segmentClass);
+                                LOGGER.info("[EasyBot-Debug] 已解析段落： {}", GSON.toJson(seg));
+                                return seg;
+                            }
+                            return null;
+                        })
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+
+                SyncToChatExtra(segments, text);
+
+            } catch (Exception e) {
+                LOGGER.error("[EasyBot-Debug] 有效载荷 handleSendToChat 中出现严重错误： {}", rawJson, e);
+            }
+        });
     }
 
     @Override
-    public void SyncToChatExtra(List<Segment> segments, String text) {
-        if (server != null && server.getPlayerManager() != null) {
-            server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(text), false);
+    public void SyncToChatExtra(List<Segment> segments, String fallbackText) {
+        if (server == null || server.getPlayerManager() == null) {
+            return;
         }
+
+        if (segments == null || segments.isEmpty()) {
+            LOGGER.info("[EasyBot-Debug] 以空片段调用 SyncToChatExtra，广播回退文本： '{}'", fallbackText);
+            if(fallbackText != null && !fallbackText.isEmpty()){
+                server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(fallbackText), false);
+            }
+            return;
+        }
+
+        MutableText finalMessage = Text.empty();
+        LOGGER.info("[EasyBot-Debug] 从 {} 片段创建富文本信息。", segments.size());
+
+        for (Segment segment : segments) {
+            if (segment instanceof TextSegment textSegment) {
+                finalMessage.append(Text.of(textSegment.text));
+
+            } else if (segment instanceof AtSegment atSegment) {
+                String atDisplayName = "@" + (atSegment.atPlayerNames.isEmpty()
+                        ? atSegment.atUserName
+                        : String.join(",", atSegment.atPlayerNames));
+
+                MutableText atText = Text.literal(atDisplayName).formatted(Formatting.GOLD);
+                String hoverInfo = String.format("社交账号: %s (%s)", atSegment.atUserName, atSegment.atUserId);
+                atText.styled(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.of(hoverInfo))));
+                finalMessage.append(atText);
+
+            } else if (segment instanceof ImageSegment imageSegment) {
+                MutableText imageText = Text.literal("[图片]").formatted(Formatting.GREEN);
+                imageText.styled(style -> style
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.of("点击预览")))
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, imageSegment.url))
+                );
+                finalMessage.append(imageText);
+            }
+        }
+
+        LOGGER.info("[EasyBot-Debug] 建立最终的富文本信息。向玩家广播。");
+        server.getPlayerManager().broadcast(finalMessage, false);
     }
 
     private void handleUnbindNotify(String rawJson) {

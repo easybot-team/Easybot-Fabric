@@ -1,7 +1,7 @@
 {
   "token": "YOUR_TOKEN_HERE",
-  "ws": "ws://v4-home.lby123165.cn:1501/bridge",
-  "serverName": "default_server",
+  "ws": "ws://127.0.0.1:26690/bridge",
+  "serverName": "fabric_server",
   "debug": false,
   "ignoreError": false,
   "updateNotify": true,

@@ -4,8 +4,8 @@ import com.google.gson.annotations.SerializedName;
 import org.lby123165.easybot.bridge.model.PlayerInfo;
 
 /**
- * Represents the data payload for a player join event.
- * This packet does not need transport-level details like opcodes or callback IDs.
+ * 代表玩家加入事件的数据有效载荷。
+ * 该数据包不需要操作码或回调 ID 等传输级细节。
  */
 public class OnPlayerJoinPacket {
     @SerializedName("player")

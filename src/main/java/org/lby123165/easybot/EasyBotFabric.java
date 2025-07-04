@@ -29,18 +29,18 @@ public class EasyBotFabric implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        LOGGER.info("EasyBot Fabric Mod ({}) is initializing...", MOD_ID);
+        LOGGER.info("EasyBot Fabric Mod ({}) 正在初始化...", MOD_ID);
         instance = this;
 
         config = EasyBotConfig.load();
-        LOGGER.info("Configuration loaded.");
+        LOGGER.info("配置已加载。");
 
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             EasyBotFabric.minecraftServer = server;
             serverStartTime = System.currentTimeMillis();
             connectWebSocket(server);
             PlayerEventListener.register();
-            LOGGER.info("Player event listeners registered.");
+            LOGGER.info("玩家事件监听器已注册。");
         });
 
         // FIX: Use the new helper method for a clean shutdown on server stop
@@ -53,20 +53,20 @@ public class EasyBotFabric implements ModInitializer {
             commandHandler.registerCommands(dispatcher);
         });
 
-        LOGGER.info("EasyBot Fabric Mod initialized.");
+        LOGGER.info("EasyBot Fabric Mod 初始化完成。");
     }
 
     public void reload() {
-        LOGGER.info("Reloading EasyBot...");
+        LOGGER.info("正在重新加载EasyBot...");
         config = EasyBotConfig.reload();
-        LOGGER.info("Configuration reloaded.");
+        LOGGER.info("配置已重新加载。");
 
         if (bridgeClient != null && minecraftServer != null) {
             // FIX: Use the new helper method to fully clean up the old client before reconnecting
             shutdownWebSocket();
             connectWebSocket(minecraftServer);
         } else {
-            LOGGER.warn("Cannot restart WebSocket client as the server instance is not available.");
+            LOGGER.warn("无法重启WebSocket客户端，服务器实例不可用。");
         }
     }
 
@@ -79,14 +79,14 @@ public class EasyBotFabric implements ModInitializer {
             bridgeClient = newBridgeClient;
             bridgeClient.connect();
         } catch (Exception e) {
-            LOGGER.error("An unexpected error occurred during WebSocket initialization", e);
+            LOGGER.error("WebSocket初始化时发生意外错误", e);
         }
     }
 
     // FIX: Renamed from disconnectWebSocket to better reflect its purpose
     private void shutdownWebSocket() {
         if (bridgeClient != null) {
-            LOGGER.info("Shutting down WebSocket connection...");
+            LOGGER.info("正在关闭WebSocket连接...");
             // This now correctly calls the shutdown method we added to the interface
             bridgeClient.shutdown();
             bridgeClient = null;

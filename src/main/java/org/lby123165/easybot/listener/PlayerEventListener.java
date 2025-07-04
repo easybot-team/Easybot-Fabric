@@ -26,7 +26,7 @@ public class PlayerEventListener {
             BridgeClient client = EasyBotFabric.getBridgeClient();
             if (client == null || !client.isOpen()) return;
 
-            EasyBotFabric.LOGGER.info("Player {} joined, reporting to EasyBot...", player.getName().getString());
+            EasyBotFabric.LOGGER.info("玩家 {} 加入游戏，正在上报EasyBot...", player.getName().getString());
 
             PlayerInfo playerInfo = new PlayerInfo(
                     player.getName().getString(),
@@ -40,13 +40,13 @@ public class PlayerEventListener {
             client.login(playerInfo).thenAccept(result -> {
                 if (result.kick) {
                     server.execute(() -> player.networkHandler.disconnect(Text.of(result.kickMessage)));
-                    EasyBotFabric.LOGGER.info("Kicking player {} due to EasyBot login check: {}", player.getName().getString(), result.kickMessage);
+                    EasyBotFabric.LOGGER.info("正在踢出玩家 {}，原因：EasyBot登录检查不通过：{}", player.getName().getString(), result.kickMessage);
                 } else {
                     PlayerInfoWithRaw infoWithRaw = new PlayerInfoWithRaw(playerInfo, player.getName().getString());
                     client.syncEnterExit(infoWithRaw, true);
                 }
             }).exceptionally(ex -> {
-                EasyBotFabric.LOGGER.error("Error during player login check for {}", player.getName().getString(), ex);
+                EasyBotFabric.LOGGER.error("玩家 {} 登录检查时发生错误", player.getName().getString(), ex);
                 return null;
             });
         });
@@ -57,7 +57,7 @@ public class PlayerEventListener {
             BridgeClient client = EasyBotFabric.getBridgeClient();
             if (client == null || !client.isOpen()) return;
 
-            EasyBotFabric.LOGGER.info("Player {} left, reporting to EasyBot...", player.getName().getString());
+            EasyBotFabric.LOGGER.info("玩家 {} 退出游戏，正在上报EasyBot...", player.getName().getString());
 
             PlayerInfo playerInfo = new PlayerInfo(
                     player.getName().getString(),
@@ -120,15 +120,15 @@ public class PlayerEventListener {
                 } else {
                     // 3.2 如果没有实体，则解析环境死因
                     if (deathMessage.contains("fell") || deathMessage.contains("hit the ground")) {
-                        killerName = "fall";
+                        killerName = "摔落伤害";
                     } else if (deathMessage.contains("drowned")) {
                         killerName = "drown";
                     } else if (deathMessage.contains("burned") || deathMessage.contains("went up in flames")) {
-                        killerName = "fire";
+                        killerName = "火焰";
                     } else if (deathMessage.contains("blew up") || deathMessage.contains("was blown up")) {
                         killerName = "explosion";
                     } else if (deathMessage.contains("pricked to death") || deathMessage.contains("poked to death")) {
-                        killerName = "contact"; // 例如: 仙人掌, 甜浆果丛
+                        killerName = "扎人的东西"; // 例如: 仙人掌, 甜浆果丛
                     } else if (deathMessage.contains("starved to death")) {
                         killerName = "starvation";
                     } else if (deathMessage.contains("suffocated in a wall")) {
@@ -136,7 +136,7 @@ public class PlayerEventListener {
                     } else if (deathMessage.contains("withered away")) {
                         killerName = "wither";
                     } else if (deathMessage.contains("froze to death")) {
-                        killerName = "freeze";
+                        killerName = "细雪";
                     } else {
                         killerName = "environment"; // 最终的通用环境伤害
                     }

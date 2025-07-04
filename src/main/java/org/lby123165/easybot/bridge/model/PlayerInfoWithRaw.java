@@ -7,7 +7,7 @@ public class PlayerInfoWithRaw extends PlayerInfo {
     public String playerNameRaw;
 
     public PlayerInfoWithRaw(PlayerInfo base, String rawName) {
-        // FIX: Use the public getters from the base object
+        // 修正：使用基本对象的公共获取器
         super(
                 base.getPlayerName(),
                 base.getUuid(),
