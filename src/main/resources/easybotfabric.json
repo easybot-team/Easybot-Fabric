@@ -1,6 +1,6 @@
 {
   "token": "YOUR_TOKEN_HERE",
-  "ws": "ws://127.0.0.1:26690/bridge",
+  "ws": "ws://127.0.0.1:26990/bridge",
   "serverName": "fabric_server",
   "debug": false,
   "ignoreError": false,

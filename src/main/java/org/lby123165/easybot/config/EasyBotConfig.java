@@ -27,7 +27,7 @@ public class EasyBotConfig {
 
     //<editor-fold desc="Config Fields">
     // --- Config fields (these now serve only as a final fallback in code) ---
-    public String ws = "ws://127.0.0.1:26690/bridge";
+    public String ws = "ws://127.0.0.1:26990/bridge";
     public boolean debug = false;
     public int reconnectInterval = 5000;
     public String token = "YOUR_TOKEN_HERE";

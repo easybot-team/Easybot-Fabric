@@ -1,3 +1,4 @@
+// --- 最终方案：明确声明所有必需的编译和打包依赖 ---
 plugins {
     id 'fabric-loom' version '1.10.5'
     id 'maven-publish'
@@ -6,44 +7,52 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
+// 保持仓库列表干净、最小化
 repositories {
-    // Add repositories to retrieve artifacts from in here.
-    // You should only use this when depending on other mods because
-    // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-    
-    // 阿里云Maven镜像
-    maven { url 'https://maven.aliyun.com/repository/public' }
-    maven { url 'https://maven.aliyun.com/repository/central' }
-    maven { url 'https://maven.aliyun.com/repository/google' }
-    maven { url 'https://maven.aliyun.com/repository/jcenter' }
     maven { url = "https://maven.fabricmc.net/" }
-    maven { url = "https://maven.pkg.github.com/astei/knot-resolver" } // aker's maven
-
-
-    // 原始仓库作为备用
     mavenCentral()
 }
 
 dependencies {
-    // To change the versions see the gradle.properties file
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-    // Fabric API
+    // Fabric API: 使用 modImplementation，这样它不会被打包
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-    // OkHttp for WebSocket
-    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+    // --- 关键修复：明确声明 Jetty 的所有必需组件 ---
+    def jettyVersion = "9.4.54.v20240208"
 
+    // 为了确保万无一失，我们手动为编译和打包声明所有相关的库
+    // 之前只声明了 websocket-client，现在我们把它所有的“兄弟”都加上
 
-    // 新增：添加 Jetty WebSocket 客户端库，与 Bukkit 版本保持一致
-    implementation 'org.eclipse.jetty.websocket:websocket-client:9.4.55.v20240627'
-    // 新增：添加 javax.websocket-api，因为 Jetty 客户端需要它
-    implementation 'javax.websocket:javax.websocket-api:1.1'
+    // WebSocket 客户端及其核心组件
+    modImplementation "org.eclipse.jetty.websocket:websocket-client:${jettyVersion}"
+    include "org.eclipse.jetty.websocket:websocket-client:${jettyVersion}"
 
+    // 包含 WebSocketContainerScope 的通用库 (这次崩溃的直接原因)
+    modImplementation "org.eclipse.jetty.websocket:websocket-common:${jettyVersion}"
+    include "org.eclipse.jetty.websocket:websocket-common:${jettyVersion}"
 
+    // 包含 @WebSocket 等注解的 API 库
+    modImplementation "org.eclipse.jetty.websocket:websocket-api:${jettyVersion}"
+    include "org.eclipse.jetty.websocket:websocket-api:${jettyVersion}"
+
+    // Jetty 的核心 HTTP 客户端
+    modImplementation "org.eclipse.jetty:jetty-client:${jettyVersion}"
+    include "org.eclipse.jetty:jetty-client:${jettyVersion}"
+
+    // Jetty 的底层组件
+    modImplementation "org.eclipse.jetty:jetty-http:${jettyVersion}"
+    include "org.eclipse.jetty:jetty-http:${jettyVersion}"
+    modImplementation "org.eclipse.jetty:jetty-io:${jettyVersion}"
+    include "org.eclipse.jetty:jetty-io:${jettyVersion}"
+    modImplementation "org.eclipse.jetty:jetty-util:${jettyVersion}"
+    include "org.eclipse.jetty:jetty-util:${jettyVersion}"
 }
+
+// --- 所有 shadowJar 和 remapJar 的自定义配置都已被移除，Loom 会自动处理 ---
 
 processResources {
     inputs.property "version", project.version
@@ -56,10 +65,6 @@ processResources {
 
 def targetJavaVersion = 17
 tasks.withType(JavaCompile).configureEach {
-    // ensure that the encoding is set to UTF-8, no matter what the system default is
-    // this fixes some edge cases with special characters not being interpreted correctly
-    // see http://yodaconditions.net/blog/fix-for-java-file-encoding-problems-with-gradle.html
-    // If Javadoc is generated, this must be specified in that task too.
     it.options.encoding = "UTF-8"
     if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
         it.options.release = targetJavaVersion
@@ -72,34 +77,26 @@ java {
         toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     }
     archivesBaseName = project.archives_base_name
-    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-    // if it is present.
-    // If you remove this line, sources will not be generated.
     withSourcesJar()
 }
 
-
-
 jar {
     from("LICENSE") {
-        rename { "${it}_${project.archivesBaseName}" }
+        rename { "${it}_${project.archives_base_name}" }
     }
 }
 
-// configure the maven publication
+// 配置 Maven 发布
+// Loom 会确保 remapJar 任务生成正确的、包含依赖的最终产物
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            from components.java
+            artifact remapJar
+            artifact remapSourcesJar
         }
     }
 
-    // See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
     repositories {
-        // Add repositories to publish to here.
-        // Notice: This block does NOT have the same function as the block in the top level.
-        // The repositories here will be used for publishing your artifact, not for
-        // retrieving dependencies.
+        // 在此处添加要发布到的仓库
     }
-
 }
