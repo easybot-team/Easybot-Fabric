@@ -18,6 +18,8 @@ import org.lby123165.easybot.bridge.message.*;
 import org.lby123165.easybot.bridge.model.FabricServerInfo;
 import org.lby123165.easybot.bridge.model.PlayerInfo;
 import org.lby123165.easybot.bridge.packet.*;
+import org.lby123165.easybot.duck.ILatencyProvider;
+import org.lby123165.easybot.mixin.ServerPlayNetworkHandlerMixin;
 import org.lby123165.easybot.util.TextUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -317,11 +319,14 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         List<PlayerInfo> players = new ArrayList<>();
         if (server != null && server.getPlayerManager() != null) {
             for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                // --- The Final Fix: Use our new interface and Mixin ---
+                int latency = ((ILatencyProvider) player.networkHandler).getLatency();
+
                 players.add(new PlayerInfo(
                         player.getName().getString(),
                         player.getUuid().toString(),
                         player.getDisplayName().getString(),
-                        player.networkHandler.getLatency(),
+                        latency, // Use the latency we just got
                         player.getWorld().getRegistryKey().getValue().toString(),
                         player.getX(),
                         player.getY(),

@@ -22,7 +22,7 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     // --- 关键修复：明确声明 Jetty 的所有必需组件 ---
-    def jettyVersion = "9.4.54.v20240208"
+    def jettyVersion = "9.4.55.v20240627"
 
     // 为了确保万无一失，我们手动为编译和打包声明所有相关的库
     // 之前只声明了 websocket-client，现在我们把它所有的“兄弟”都加上

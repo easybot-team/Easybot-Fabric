@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "org.lby123165.easybot.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "ServerPlayNetworkHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

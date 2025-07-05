@@ -12,6 +12,7 @@ import org.lby123165.easybot.EasyBotFabric;
 import org.lby123165.easybot.bridge.BridgeClient;
 import org.lby123165.easybot.bridge.model.PlayerInfo;
 import org.lby123165.easybot.bridge.model.PlayerInfoWithRaw;
+import org.lby123165.easybot.duck.ILatencyProvider;
 
 // 为正则表达式添加必要的导入
 import java.util.regex.Matcher;
@@ -32,7 +33,7 @@ public class PlayerEventListener {
                     player.getName().getString(),
                     player.getUuid().toString(),
                     player.getDisplayName().getString(),
-                    player.networkHandler.getLatency(),
+                    ((ILatencyProvider) player.networkHandler).getLatency(),
                     player.getWorld().getRegistryKey().getValue().toString(),
                     player.getX(), player.getY(), player.getZ()
             );
@@ -80,7 +81,7 @@ public class PlayerEventListener {
                     sender.getName().getString(),
                     sender.getUuid().toString(),
                     sender.getDisplayName().getString(),
-                    sender.networkHandler.getLatency(),
+                    ((ILatencyProvider) sender.networkHandler).getLatency(),
                     sender.getWorld().getRegistryKey().getValue().toString(),
                     sender.getX(), sender.getY(), sender.getZ()
             );
@@ -148,7 +149,7 @@ public class PlayerEventListener {
                     player.getName().getString(),
                     player.getUuid().toString(),
                     player.getDisplayName().getString(),
-                    player.networkHandler.getLatency(),
+                    ((ILatencyProvider) player.networkHandler).getLatency(),
                     player.getWorld().getRegistryKey().getValue().toString(),
                     player.getX(), player.getY(), player.getZ()
             );
