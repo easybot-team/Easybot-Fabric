@@ -113,21 +113,24 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         }
     }
 
+
     private void handleRunCommand(String callbackId, String execOp, String rawJson) {
         RunCommandPacket packet = GSON.fromJson(rawJson, RunCommandPacket.class);
         String commandToRun = packet.command;
 
         if (packet.enablePapi && FabricClientProfile.isPapiSupported()) {
-            LOGGER.warn("Fabric 版本完成PAPI支持。");
+            LOGGER.warn("Fabric 版本暂未完成PAPI支持。");
         }
 
         this.server.execute(() -> {
             try {
-                final StringBuilder output = new StringBuilder();
+                // --- 代码改进：捕获完整的 Text 对象，而不仅仅是字符串 ---
+                final List<Text> capturedMessages = new ArrayList<>();
                 CommandOutput commandOutput = new CommandOutput() {
                     @Override
                     public void sendMessage(Text message) {
-                        output.append(message.getString()).append("\n");
+                        // 将完整的 Text 对象添加到列表中
+                        capturedMessages.add(message);
                     }
                     @Override
                     public boolean shouldReceiveFeedback() { return true; }
@@ -151,7 +154,15 @@ public class FabricBridgeBehavior extends BridgeBehavior {
 
                 this.server.getCommandManager().executeWithPrefix(source, commandToRun);
 
-                RunCommandResultPacket result = new RunCommandResultPacket(true, output.toString().trim());
+// ... (后面处理返回结果的代码) ...
+                // --- 代码改进：将捕获到的 Text 列表转换为 Markdown ---
+                StringBuilder markdownOutput = new StringBuilder();
+                for (Text message : capturedMessages) {
+                    // 使用一个新的工具方法将 Text 转换为 Markdown
+                    markdownOutput.append(TextUtil.toMarkdown(message)).append("\n");
+                }
+
+                RunCommandResultPacket result = new RunCommandResultPacket(true, markdownOutput.toString().trim());
                 sendCallback(callbackId, execOp, result);
 
             } catch (Exception e) {
@@ -162,34 +173,48 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         });
     }
 
+// 在 FabricBridgeBehavior.java 的 handleSendToChat 方法中
+
     private void handleSendToChat(String rawJson) {
         // 确保所有逻辑都在服务器主线程中运行，以避免任何并发问题
         server.execute(() -> {
             try {
-                LOGGER.info("[EasyBot-Debug] 接收到的 SEND_TO_CHAT 有效负载: {}", rawJson);
+                // --- 代码改进：使用 DEBUG 级别并添加判断 ---
+                if (FabricClientProfile.isDebugMode()) {
+                    // 1. 使用 .debug()
+                    // 2. 移除手动添加的 "[EasyBot-Debug]" 前缀
+                    LOGGER.debug("接收到的 SEND_TO_CHAT 有效负载: {}", rawJson);
+                }
 
                 JsonObject packetJson = GSON.fromJson(rawJson, JsonObject.class);
 
                 JsonElement extraElement = packetJson.get("extra");
                 String text = packetJson.has("text") ? packetJson.get("text").getAsString() : "";
 
-                // 检查 'extra' 字段是否包含有效的富文本内容
                 boolean hasRichContent = extraElement != null && !extraElement.isJsonNull() && extraElement.isJsonArray() && !extraElement.getAsJsonArray().isEmpty();
 
-                LOGGER.info("[EasyBot-Debug] 已解析信息。文本： '{}', 富文本内容： {}", text, hasRichContent);
+                if (FabricClientProfile.isDebugMode()) {
+                    LOGGER.debug("已解析信息。文本： '{}', 富文本内容： {}", text, hasRichContent);
+                }
 
                 if (!hasRichContent) {
-                    LOGGER.info("[EasyBot-Debug] 以简单的文本信息形式进行广播。");
+                    if (FabricClientProfile.isDebugMode()) {
+                        LOGGER.debug("以简单的文本信息形式进行广播。");
+                    }
                     if (text != null && !text.isEmpty()) {
                         server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(text), false);
                     } else {
-                        LOGGER.warn("[EasyBot-Debug] 简单的文字信息是空的，不是广播");
+                        // 对于非调试情况，这条日志可能也应该只在调试模式下显示
+                        if (FabricClientProfile.isDebugMode()) {
+                            LOGGER.debug("简单的文字信息是空的，不是广播");
+                        }
                     }
                     return;
                 }
 
-                // 如果 'extra' 是一个非空数组，则作为富文本处理
-                LOGGER.info("[EasyBot-Debug] 以富文本信息形式广播.");
+                if (FabricClientProfile.isDebugMode()) {
+                    LOGGER.debug("以富文本信息形式广播.");
+                }
                 List<Segment> segments = StreamSupport.stream(extraElement.getAsJsonArray().spliterator(), false)
                         .map(JsonElement::getAsJsonObject)
                         .map(obj -> {
@@ -197,7 +222,9 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                             Class<? extends Segment> segmentClass = Segment.getSegmentClass(type);
                             if (segmentClass != null) {
                                 Segment seg = GSON.fromJson(obj, segmentClass);
-                                LOGGER.info("[EasyBot-Debug] 已解析段落： {}", GSON.toJson(seg));
+                                if (FabricClientProfile.isDebugMode()) {
+                                    LOGGER.debug("已解析段落： {}", GSON.toJson(seg));
+                                }
                                 return seg;
                             }
                             return null;
@@ -208,7 +235,8 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 SyncToChatExtra(segments, text);
 
             } catch (Exception e) {
-                LOGGER.error("[EasyBot-Debug] 有效载荷 handleSendToChat 中出现严重错误： {}", rawJson, e);
+                // 对于错误，保留 ERROR 级别，但可以添加更多上下文
+                LOGGER.error("在 handleSendToChat 中处理消息时出现严重错误。原始负载: {}", rawJson, e);
             }
         });
     }
@@ -220,7 +248,9 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         }
 
         if (segments == null || segments.isEmpty()) {
-            LOGGER.info("[EasyBot-Debug] 以空片段调用 SyncToChatExtra，广播回退文本： '{}'", fallbackText);
+            if (FabricClientProfile.isDebugMode()) {
+                LOGGER.debug("以空片段调用 SyncToChatExtra，广播回退文本： '{}'", fallbackText);
+            }
             if(fallbackText != null && !fallbackText.isEmpty()){
                 server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(fallbackText), false);
             }
@@ -228,7 +258,9 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         }
 
         MutableText finalMessage = Text.empty();
-        LOGGER.info("[EasyBot-Debug] 从 {} 片段创建富文本信息。", segments.size());
+        if (FabricClientProfile.isDebugMode()) {
+            LOGGER.debug("从 {} 片段创建富文本信息。", segments.size());
+        }
 
         for (Segment segment : segments) {
             if (segment instanceof TextSegment textSegment) {
@@ -254,9 +286,12 @@ public class FabricBridgeBehavior extends BridgeBehavior {
             }
         }
 
-        LOGGER.info("[EasyBot-Debug] 建立最终的富文本信息。向玩家广播。");
+        if (FabricClientProfile.isDebugMode()) {
+            LOGGER.debug("建立最终的富文本信息。向玩家广播。");
+        }
         server.getPlayerManager().broadcast(finalMessage, false);
     }
+    // FIX: The extra closing brace that was here has been removed.
 
     private void handleUnbindNotify(String rawJson) {
         PlayerUnBindNotifyPacket packet = GSON.fromJson(rawJson, PlayerUnBindNotifyPacket.class);
