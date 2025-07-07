@@ -19,7 +19,6 @@ import org.lby123165.easybot.bridge.model.FabricServerInfo;
 import org.lby123165.easybot.bridge.model.PlayerInfo;
 import org.lby123165.easybot.bridge.packet.*;
 import org.lby123165.easybot.duck.ILatencyProvider;
-import org.lby123165.easybot.mixin.ServerPlayNetworkHandlerMixin;
 import org.lby123165.easybot.util.TextUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,134 +82,142 @@ public class FabricBridgeBehavior extends BridgeBehavior {
     }
 
     private void handleRequest(CommandPacket command, String rawJson) {
-        switch (command.execOp) {
-            case "PLAYER_LIST":
-                handleGetPlayerList(command.callbackId, command.execOp);
-                break;
-            case "GET_SERVER_INFO":
-                handleGetServerInfo(command.callbackId, command.execOp);
-                break;
-            case "RUN_COMMAND":
-                handleRunCommand(command.callbackId, command.execOp, rawJson);
-                break;
-        }
+        // Using server.execute to ensure all logic runs on the main server thread
+        server.execute(() -> {
+            switch (command.execOp) {
+                case "PLAYER_LIST":
+                    handleGetPlayerList(command.callbackId, command.execOp);
+                    break;
+                case "GET_SERVER_INFO":
+                    handleGetServerInfo(command.callbackId, command.execOp);
+                    break;
+                case "RUN_COMMAND":
+                    handleRunCommand(command.callbackId, command.execOp, rawJson);
+                    break;
+            }
+        });
     }
 
     private void handleNotification(CommandPacket command, String rawJson) {
-        switch (command.execOp) {
-            case "SEND_TO_CHAT":
-                handleSendToChat(rawJson);
-                break;
-            case "UN_BIND_NOTIFY":
-                handleUnbindNotify(rawJson);
-                break;
-            case "BIND_SUCCESS_NOTIFY":
-                handleBindSuccessNotify(rawJson);
-                break;
-            case "SYNC_SETTINGS_UPDATED":
-                handleSyncSettingsUpdated(rawJson);
-                break;
-        }
+        // Using server.execute to ensure all logic runs on the main server thread
+        server.execute(() -> {
+            switch (command.execOp) {
+                case "SEND_TO_CHAT":
+                    handleSendToChat(rawJson);
+                    break;
+                case "UN_BIND_NOTIFY":
+                    handleUnbindNotify(rawJson);
+                    break;
+                case "BIND_SUCCESS_NOTIFY":
+                    handleBindSuccessNotify(rawJson);
+                    break;
+                case "SYNC_SETTINGS_UPDATED":
+                    handleSyncSettingsUpdated(rawJson);
+                    break;
+            }
+        });
     }
+
 
     private void handleRunCommand(String callbackId, String execOp, String rawJson) {
         RunCommandPacket packet = GSON.fromJson(rawJson, RunCommandPacket.class);
         String commandToRun = packet.command;
 
         if (packet.enablePapi && FabricClientProfile.isPapiSupported()) {
-            LOGGER.warn("Fabric 版本完成PAPI支持。");
+            LOGGER.warn("Fabric 版本暂未完成PAPI支持。");
         }
 
-        this.server.execute(() -> {
-            try {
-                final StringBuilder output = new StringBuilder();
-                CommandOutput commandOutput = new CommandOutput() {
-                    @Override
-                    public void sendMessage(Text message) {
-                        output.append(message.getString()).append("\n");
-                    }
-                    @Override
-                    public boolean shouldReceiveFeedback() { return true; }
-                    @Override
-                    public boolean shouldTrackOutput() { return true; }
-                    @Override
-                    public boolean shouldBroadcastConsoleToOps() { return false; }
-                };
+        try {
+            final List<Text> capturedMessages = new ArrayList<>();
+            CommandOutput commandOutput = new CommandOutput() {
+                @Override
+                public void sendMessage(Text message) {
+                    capturedMessages.add(message);
+                }
+                @Override
+                public boolean shouldReceiveFeedback() { return true; }
+                @Override
+                public boolean shouldTrackOutput() { return true; }
+                @Override
+                public boolean shouldBroadcastConsoleToOps() { return false; }
+            };
 
-                ServerCommandSource source = new ServerCommandSource(
-                        commandOutput,
-                        Vec3d.of(server.getOverworld().getSpawnPos()),
-                        Vec2f.ZERO,
-                        server.getOverworld(),
-                        4, // Permission level 4 (console)
-                        "EasyBot",
-                        Text.of("EasyBot"),
-                        server,
-                        null
-                );
+            ServerCommandSource source = new ServerCommandSource(
+                    commandOutput,
+                    Vec3d.of(server.getOverworld().getSpawnPos()),
+                    Vec2f.ZERO,
+                    server.getOverworld(),
+                    4, // Permission level 4 (console)
+                    "EasyBot",
+                    Text.of("EasyBot"),
+                    server,
+                    null
+            );
 
-                this.server.getCommandManager().executeWithPrefix(source, commandToRun);
+            this.server.getCommandManager().executeWithPrefix(source, commandToRun);
 
-                RunCommandResultPacket result = new RunCommandResultPacket(true, output.toString().trim());
-                sendCallback(callbackId, execOp, result);
-
-            } catch (Exception e) {
-                LOGGER.error("执行指令 '{}' 时出错", commandToRun, e);
-                RunCommandResultPacket result = new RunCommandResultPacket(false, e.getMessage());
-                sendCallback(callbackId, execOp, result);
+            StringBuilder markdownOutput = new StringBuilder();
+            for (Text message : capturedMessages) {
+                markdownOutput.append(TextUtil.toMarkdown(message)).append("\n");
             }
-        });
+
+            RunCommandResultPacket result = new RunCommandResultPacket(true, markdownOutput.toString().trim());
+            sendCallback(callbackId, execOp, result);
+
+        } catch (Exception e) {
+            LOGGER.error("执行指令 '{}' 时出错", commandToRun, e);
+            RunCommandResultPacket result = new RunCommandResultPacket(false, e.getMessage());
+            sendCallback(callbackId, execOp, result);
+        }
     }
 
     private void handleSendToChat(String rawJson) {
-        // 确保所有逻辑都在服务器主线程中运行，以避免任何并发问题
-        server.execute(() -> {
-            try {
-                LOGGER.info("[EasyBot-Debug] 接收到的 SEND_TO_CHAT 有效负载: {}", rawJson);
-
-                JsonObject packetJson = GSON.fromJson(rawJson, JsonObject.class);
-
-                JsonElement extraElement = packetJson.get("extra");
-                String text = packetJson.has("text") ? packetJson.get("text").getAsString() : "";
-
-                // 检查 'extra' 字段是否包含有效的富文本内容
-                boolean hasRichContent = extraElement != null && !extraElement.isJsonNull() && extraElement.isJsonArray() && !extraElement.getAsJsonArray().isEmpty();
-
-                LOGGER.info("[EasyBot-Debug] 已解析信息。文本： '{}', 富文本内容： {}", text, hasRichContent);
-
-                if (!hasRichContent) {
-                    LOGGER.info("[EasyBot-Debug] 以简单的文本信息形式进行广播。");
-                    if (text != null && !text.isEmpty()) {
-                        server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(text), false);
-                    } else {
-                        LOGGER.warn("[EasyBot-Debug] 简单的文字信息是空的，不是广播");
-                    }
-                    return;
-                }
-
-                // 如果 'extra' 是一个非空数组，则作为富文本处理
-                LOGGER.info("[EasyBot-Debug] 以富文本信息形式广播.");
-                List<Segment> segments = StreamSupport.stream(extraElement.getAsJsonArray().spliterator(), false)
-                        .map(JsonElement::getAsJsonObject)
-                        .map(obj -> {
-                            SegmentType type = SegmentType.fromValue(obj.get("type").getAsInt());
-                            Class<? extends Segment> segmentClass = Segment.getSegmentClass(type);
-                            if (segmentClass != null) {
-                                Segment seg = GSON.fromJson(obj, segmentClass);
-                                LOGGER.info("[EasyBot-Debug] 已解析段落： {}", GSON.toJson(seg));
-                                return seg;
-                            }
-                            return null;
-                        })
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toList());
-
-                SyncToChatExtra(segments, text);
-
-            } catch (Exception e) {
-                LOGGER.error("[EasyBot-Debug] 有效载荷 handleSendToChat 中出现严重错误： {}", rawJson, e);
+        try {
+            // FIX: Use proper debug logging
+            if (FabricClientProfile.isDebugMode()) {
+                LOGGER.debug("接收到的 SEND_TO_CHAT 有效负载: {}", rawJson);
             }
-        });
+
+            JsonObject packetJson = GSON.fromJson(rawJson, JsonObject.class);
+
+            JsonElement extraElement = packetJson.get("extra");
+            String text = packetJson.has("text") ? packetJson.get("text").getAsString() : "";
+
+            boolean hasRichContent = extraElement != null && !extraElement.isJsonNull() && extraElement.isJsonArray() && !extraElement.getAsJsonArray().isEmpty();
+
+            if (FabricClientProfile.isDebugMode()) {
+                LOGGER.debug("已解析信息。文本： '{}', 富文本内容： {}", text, hasRichContent);
+            }
+
+            if (!hasRichContent) {
+                if (text != null && !text.isEmpty()) {
+                    server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(text), false);
+                }
+                return;
+            }
+
+            List<Segment> segments = StreamSupport.stream(extraElement.getAsJsonArray().spliterator(), false)
+                    .map(JsonElement::getAsJsonObject)
+                    .map(obj -> {
+                        SegmentType type = SegmentType.fromValue(obj.get("type").getAsInt());
+                        Class<? extends Segment> segmentClass = Segment.getSegmentClass(type);
+                        if (segmentClass != null) {
+                            Segment seg = GSON.fromJson(obj, segmentClass);
+                            if (FabricClientProfile.isDebugMode()) {
+                                LOGGER.debug("已解析段落： {}", GSON.toJson(seg));
+                            }
+                            return seg;
+                        }
+                        return null;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            SyncToChatExtra(segments, text);
+
+        } catch (Exception e) {
+            LOGGER.error("在 handleSendToChat 中处理消息时出现严重错误。原始负载: {}", rawJson, e);
+        }
     }
 
     @Override
@@ -220,16 +227,13 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         }
 
         if (segments == null || segments.isEmpty()) {
-            LOGGER.info("[EasyBot-Debug] 以空片段调用 SyncToChatExtra，广播回退文本： '{}'", fallbackText);
-            if(fallbackText != null && !fallbackText.isEmpty()){
+            if (fallbackText != null && !fallbackText.isEmpty()){
                 server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(fallbackText), false);
             }
             return;
         }
 
         MutableText finalMessage = Text.empty();
-        LOGGER.info("[EasyBot-Debug] 从 {} 片段创建富文本信息。", segments.size());
-
         for (Segment segment : segments) {
             if (segment instanceof TextSegment textSegment) {
                 finalMessage.append(Text.of(textSegment.text));
@@ -241,11 +245,15 @@ public class FabricBridgeBehavior extends BridgeBehavior {
 
                 MutableText atText = Text.literal(atDisplayName).formatted(Formatting.GOLD);
                 String hoverInfo = String.format("社交账号: %s (%s)", atSegment.atUserName, atSegment.atUserId);
+
+                // FIX: Revert to the classic constructor for HoverEvent
                 atText.styled(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.of(hoverInfo))));
                 finalMessage.append(atText);
 
             } else if (segment instanceof ImageSegment imageSegment) {
                 MutableText imageText = Text.literal("[图片]").formatted(Formatting.GREEN);
+
+                // FIX: Revert to the classic constructors for HoverEvent and ClickEvent
                 imageText.styled(style -> style
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.of("点击预览")))
                         .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, imageSegment.url))
@@ -254,15 +262,19 @@ public class FabricBridgeBehavior extends BridgeBehavior {
             }
         }
 
-        LOGGER.info("[EasyBot-Debug] 建立最终的富文本信息。向玩家广播。");
+        if (FabricClientProfile.isDebugMode()) {
+            LOGGER.debug("建立最终的富文本信息。向玩家广播。");
+        }
         server.getPlayerManager().broadcast(finalMessage, false);
     }
+
+    // FIX: Removed duplicated lines and the extra closing brace that was here.
 
     private void handleUnbindNotify(String rawJson) {
         PlayerUnBindNotifyPacket packet = GSON.fromJson(rawJson, PlayerUnBindNotifyPacket.class);
         ServerPlayerEntity player = server.getPlayerManager().getPlayer(packet.playerName);
         if (player != null) {
-            server.execute(() -> player.networkHandler.disconnect(Text.of(packet.kickMessage)));
+            player.networkHandler.disconnect(Text.of(packet.kickMessage));
             LOGGER.info("已将玩家 {} 踢出服务器，原因: 解绑账号", packet.playerName);
         }
     }
@@ -319,14 +331,13 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         List<PlayerInfo> players = new ArrayList<>();
         if (server != null && server.getPlayerManager() != null) {
             for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                // --- The Final Fix: Use our new interface and Mixin ---
                 int latency = ((ILatencyProvider) player.networkHandler).getLatency();
 
                 players.add(new PlayerInfo(
                         player.getName().getString(),
                         player.getUuid().toString(),
                         player.getDisplayName().getString(),
-                        latency, // Use the latency we just got
+                        latency,
                         player.getWorld().getRegistryKey().getValue().toString(),
                         player.getX(),
                         player.getY(),

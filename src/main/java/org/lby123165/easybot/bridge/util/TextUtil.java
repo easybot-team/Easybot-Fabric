@@ -1,8 +1,6 @@
 package org.lby123165.easybot.util;
 
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
+import net.minecraft.text.*;
 import net.minecraft.util.Formatting;
 
 import java.util.regex.Matcher;
@@ -10,7 +8,6 @@ import java.util.regex.Pattern;
 
 public class TextUtil {
 
-    // 正则表达式，用于查找 § 符号后跟一个有效的格式代码字符 (0-9, a-f, k-o, r)
     private static final Pattern FORMATTING_CODE_PATTERN = Pattern.compile("§([0-9a-fk-or])");
 
     /**
@@ -31,42 +28,100 @@ public class TextUtil {
         int lastEnd = 0;
         Style currentStyle = Style.EMPTY;
 
-        // 循环查找每一个格式代码
         while (matcher.find()) {
-            // 1. 将此格式代码之前的文本，应用上一个样式，并追加到结果中
             String precedingText = text.substring(lastEnd, matcher.start());
             if (!precedingText.isEmpty()) {
                 resultText.append(Text.literal(precedingText).setStyle(currentStyle));
             }
 
-            // 2. 获取新的格式代码
             char formatChar = matcher.group(1).charAt(0);
             Formatting formatting = Formatting.byCode(formatChar);
 
-            // 3. 根据代码类型更新当前样式
             if (formatting != null) {
                 if (formatting == Formatting.RESET) {
-                    // 如果是重置代码，清空所有样式
                     currentStyle = Style.EMPTY;
                 } else if (formatting.isColor()) {
-                    // 如果是颜色代码，清空所有样式并应用新颜色
                     currentStyle = Style.EMPTY.withColor(formatting);
-                } else { // 如果是粗体、斜体等修饰符
-                    // 在现有样式上添加修饰符
+                } else {
                     currentStyle = currentStyle.withFormatting(formatting);
                 }
             }
-
-            // 4. 更新下一次查找的起始位置
             lastEnd = matcher.end();
         }
 
-        // 5. 将最后一个格式代码之后的所有剩余文本，应用最终的样式
         if (lastEnd < text.length()) {
             String remainingText = text.substring(lastEnd);
             resultText.append(Text.literal(remainingText).setStyle(currentStyle));
         }
 
         return resultText;
+    }
+
+    /**
+     * 将 Minecraft 的 Text 组件及其所有子组件递归地转换为 Markdown 格式的字符串。
+     * @param text 要转换的 Text 对象
+     * @return Markdown 格式的字符串
+     */
+    public static String toMarkdown(Text text) {
+        if (text == null) {
+            return "";
+        }
+        StringBuilder markdownBuilder = new StringBuilder();
+        buildMarkdownRecursively(text, markdownBuilder);
+        return markdownBuilder.toString();
+    }
+
+    /**
+     * 递归地构建 Markdown 字符串。
+     * @param part 当前处理的 Text 部分
+     * @param markdownBuilder 用于构建最终字符串的 StringBuilder
+     */
+    private static void buildMarkdownRecursively(Text part, StringBuilder markdownBuilder) {
+        // 1. 处理当前节点的内容和样式
+        // FIX: Revert to the classic 'instanceof' check for wider compatibility.
+        String content = "";
+        if (part.getContent() instanceof LiteralTextContent literalContent) {
+            // This is the correct way to get the string from a literal text component.
+            content = literalContent.string();
+        }
+
+        if (!content.isEmpty()) {
+            // 暂存当前 builder 的长度，以便在需要时进行包装
+            int startIndex = markdownBuilder.length();
+
+            boolean isBold = part.getStyle().isBold();
+            boolean isItalic = part.getStyle().isItalic();
+
+            if (isBold) markdownBuilder.append("**");
+            if (isItalic) markdownBuilder.append("*");
+
+            markdownBuilder.append(content);
+
+            if (isItalic) markdownBuilder.append("*");
+            if (isBold) markdownBuilder.append("**");
+
+            // 处理点击事件 -> 转换为 Markdown 链接
+            ClickEvent clickEvent = part.getStyle().getClickEvent();
+            if (clickEvent != null && clickEvent.getAction() == ClickEvent.Action.OPEN_URL) {
+                // 将刚刚添加的整个部分格式化为 [text](url)
+                String styledContent = markdownBuilder.substring(startIndex);
+                markdownBuilder.setLength(startIndex); // 回滚
+                markdownBuilder.append("[").append(styledContent).append("](").append(clickEvent.getValue()).append(")");
+            }
+
+            // 处理悬停事件 -> 转换为括号内的提示信息
+            HoverEvent hoverEvent = part.getStyle().getHoverEvent();
+            if (hoverEvent != null && hoverEvent.getAction() == HoverEvent.Action.SHOW_TEXT) {
+                Text hoverText = hoverEvent.getValue(HoverEvent.Action.SHOW_TEXT);
+                if (hoverText != null) {
+                    markdownBuilder.append(" (悬停提示: ").append(hoverText.getString()).append(")");
+                }
+            }
+        }
+
+        // 2. 递归处理所有兄弟节点
+        for (Text sibling : part.getSiblings()) {
+            buildMarkdownRecursively(sibling, markdownBuilder);
+        }
     }
 }
