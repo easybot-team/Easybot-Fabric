@@ -14,6 +14,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.Vec3d;
+import org.lby123165.easybot.EasyBotFabric;
 import org.lby123165.easybot.bridge.message.*;
 import org.lby123165.easybot.bridge.model.FabricServerInfo;
 import org.lby123165.easybot.bridge.model.PlayerInfo;
@@ -123,8 +124,18 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         RunCommandPacket packet = GSON.fromJson(rawJson, RunCommandPacket.class);
         String commandToRun = packet.command;
 
+        // 如果启用了PAPI且Text Placeholder API可用，则替换占位符
         if (packet.enablePapi && FabricClientProfile.isPapiSupported()) {
-            LOGGER.warn("Fabric 版本暂未完成PAPI支持。");
+            String playerName = packet.playerName;
+            if (playerName != null && !playerName.isEmpty()) {
+                ServerPlayerEntity player = server.getPlayerManager().getPlayer(playerName);
+                if (player != null) {
+                    commandToRun = org.lby123165.easybot.util.PapiUtil.parsePlaceholders(commandToRun, player);
+                    LOGGER.debug("已使用PAPI替换命令中的占位符: {}", commandToRun);
+                } else {
+                    LOGGER.warn("无法找到玩家 {} 进行PAPI替换", playerName);
+                }
+            }
         }
 
         try {
@@ -246,16 +257,16 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 MutableText atText = Text.literal(atDisplayName).formatted(Formatting.GOLD);
                 String hoverInfo = String.format("社交账号: %s (%s)", atSegment.atUserName, atSegment.atUserId);
 
-                // FIX: Revert to the classic constructor for HoverEvent
-                atText.styled(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.of(hoverInfo))));
+                // FIX: Use Text.literal() instead of Text.of() to avoid InstantiationError
+                atText.styled(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hoverInfo))));
                 finalMessage.append(atText);
 
             } else if (segment instanceof ImageSegment imageSegment) {
                 MutableText imageText = Text.literal("[图片]").formatted(Formatting.GREEN);
 
-                // FIX: Revert to the classic constructors for HoverEvent and ClickEvent
+                // FIX: Use Text.literal() instead of Text.of() to avoid InstantiationError
                 imageText.styled(style -> style
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.of("点击预览")))
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("点击预览")))
                         .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, imageSegment.url))
                 );
                 finalMessage.append(imageText);
@@ -272,6 +283,13 @@ public class FabricBridgeBehavior extends BridgeBehavior {
 
     private void handleUnbindNotify(String rawJson) {
         PlayerUnBindNotifyPacket packet = GSON.fromJson(rawJson, PlayerUnBindNotifyPacket.class);
+        
+        // 处理白名单
+        if (EasyBotFabric.getConfig().enableWhiteList) {
+            org.lby123165.easybot.util.WhitelistUtil.handleUnbind(packet.playerName, server);
+        }
+        
+        // 踢出玩家
         ServerPlayerEntity player = server.getPlayerManager().getPlayer(packet.playerName);
         if (player != null) {
             player.networkHandler.disconnect(Text.of(packet.kickMessage));
@@ -283,12 +301,37 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         BindSuccessNotifyPacket packet = GSON.fromJson(rawJson, BindSuccessNotifyPacket.class);
         String message = String.format("§a[EasyBot] 玩家 %s 成功绑定账号 %s (%s)", packet.playerName, packet.accountName, packet.accountId);
         server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(message), false);
+        
+        // 处理白名单
+        if (EasyBotFabric.getConfig().enableWhiteList) {
+            org.lby123165.easybot.util.WhitelistUtil.handleBindSuccess(packet.playerName, server);
+        }
+        
+        // 执行绑定成功事件配置的命令
+        if (EasyBotFabric.getConfig().events.enableSuccessEvent && 
+            EasyBotFabric.getConfig().events.bindSuccess != null && 
+            !EasyBotFabric.getConfig().events.bindSuccess.isEmpty()) {
+            
+            for (String cmd : EasyBotFabric.getConfig().events.bindSuccess) {
+                String processedCmd = cmd
+                    .replace("#player", packet.playerName)
+                    .replace("#name", packet.accountName)
+                    .replace("#account", packet.accountId);
+                
+                try {
+                    server.getCommandManager().executeWithPrefix(
+                        server.getCommandSource(), processedCmd);
+                } catch (Exception e) {
+                    LOGGER.error("执行绑定成功命令时出错: {}", processedCmd, e);
+                }
+            }
+        }
     }
 
     private void handleSyncSettingsUpdated(String rawJson) {
         UpdateSyncSettingsPacket packet = GSON.fromJson(rawJson, UpdateSyncSettingsPacket.class);
         FabricClientProfile.setSyncMessageMode(packet.syncMode);
-        FabricClientProfile.setSyncMessageMoney(packet.syncMoney);
+        FabricClientProfile.setSyncMessageMoney(packet.syncMoney == 1);
         LOGGER.info("同步设置已更新: Mode={}, Money={}", packet.syncMode, packet.syncMoney);
     }
 

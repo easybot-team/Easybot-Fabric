@@ -75,7 +75,9 @@ public class EasyBotConfig {
 
     public static class BotFilter {
         public boolean enabled = true;
-        public List<String> prefixes = List.of("Bot_", "BOT_", "bot_");
+        public List<String> prefixes = List.of("Bot_", "BOT_", "bot_", "player_");
+        public boolean filterCarpetBots = true;
+        public List<String> carpetPrefixes = List.of("bot_", "player_", "fake_");
     }
 
     public static class Command {

@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -91,6 +93,13 @@ public class FabricBridgeClient extends BridgeClient {
                     this.heartbeatInterval = helloPacket.interval;
                     sendIdentifyPacket();
                     break;
+                case 2: // Heartbeat
+                    if (isDebug()) {
+                        LOGGER.info("收到服务器心跳包，连接正常");
+                    }
+                    // 可以选择回复一个心跳包，或者简单地确认收到
+                    // 这里我们不需要额外回复，因为客户端已经在定期发送心跳包
+                    break;
                 case 3: // IdentifySuccess
                     IdentifySuccessPacket successPacket = GSON.fromJson(message, IdentifySuccessPacket.class);
                     LOGGER.info("身份验证成功！服务器名: '{}'。客户端已就绪。", successPacket.serverName);
@@ -148,6 +157,82 @@ public class FabricBridgeClient extends BridgeClient {
         json.addProperty("exec_op", "SYNC_DEATH_MESSAGE");
         json.addProperty("callback_id", "0");
         sendMessage(json.toString());
+    }
+    
+    @Override
+    public void syncCrossServerMessage(PlayerInfoWithRaw playerInfo, String message) {
+        CrossServerMessagePacket packet = new CrossServerMessagePacket(playerInfo, message);
+        JsonObject json = GSON.toJsonTree(packet).getAsJsonObject();
+        sendMessage(json.toString());
+        if (isDebug()) {
+            LOGGER.info("已发送跨服消息: {}", message);
+        }
+    }
+    
+    @Override
+    public CompletableFuture<Map<String, Object>> getSocialAccount(String playerName) {
+        String callbackId = UUID.randomUUID().toString();
+        GetSocialAccountPacket packet = new GetSocialAccountPacket(playerName, callbackId);
+        
+        CompletableFuture<String> future = new CompletableFuture<>();
+        callbackTasks.put(callbackId, future);
+        
+        sendMessage(GSON.toJson(packet));
+        
+        ScheduledFuture<?> timeoutFuture = timeoutScheduler.schedule(() -> {
+            CompletableFuture<String> removedFuture = callbackTasks.remove(callbackId);
+            if (removedFuture != null) {
+                removedFuture.completeExceptionally(new TimeoutException("获取社交账号信息超时"));
+            }
+        }, 10, TimeUnit.SECONDS);
+        
+        return future.thenApply(result -> {
+            timeoutFuture.cancel(false);
+            JsonObject json = GSON.fromJson(result, JsonObject.class);
+            
+            // 将JsonObject转换为Map
+            Map<String, Object> resultMap = new HashMap<>();
+            for (String key : json.keySet()) {
+                if (json.get(key).isJsonPrimitive()) {
+                    resultMap.put(key, json.get(key).getAsString());
+                }
+            }
+            
+            return resultMap;
+        });
+    }
+    
+    @Override
+    public CompletableFuture<Map<String, Object>> startBind(String playerName) {
+        String callbackId = UUID.randomUUID().toString();
+        StartBindPacket packet = new StartBindPacket(playerName, callbackId);
+        
+        CompletableFuture<String> future = new CompletableFuture<>();
+        callbackTasks.put(callbackId, future);
+        
+        sendMessage(GSON.toJson(packet));
+        
+        ScheduledFuture<?> timeoutFuture = timeoutScheduler.schedule(() -> {
+            CompletableFuture<String> removedFuture = callbackTasks.remove(callbackId);
+            if (removedFuture != null) {
+                removedFuture.completeExceptionally(new TimeoutException("开始绑定操作超时"));
+            }
+        }, 10, TimeUnit.SECONDS);
+        
+        return future.thenApply(result -> {
+            timeoutFuture.cancel(false);
+            JsonObject json = GSON.fromJson(result, JsonObject.class);
+            
+            // 将JsonObject转换为Map
+            Map<String, Object> resultMap = new HashMap<>();
+            for (String key : json.keySet()) {
+                if (json.get(key).isJsonPrimitive()) {
+                    resultMap.put(key, json.get(key).getAsString());
+                }
+            }
+            
+            return resultMap;
+        });
     }
 
     @Override
@@ -221,7 +306,12 @@ public class FabricBridgeClient extends BridgeClient {
         isConnected.set(false);
         ready.set(false);
         disconnect(); // Perform a soft disconnect
-        scheduleReconnect();
+        
+        // 只有在非正常关闭时才尝试重连
+        if (statusCode != 1000 && !executor.isShutdown()) {
+            LOGGER.info("检测到异常断开连接，将尝试重连");
+            scheduleReconnect();
+        }
     }
 
     @OnWebSocketError
@@ -230,7 +320,12 @@ public class FabricBridgeClient extends BridgeClient {
         isConnected.set(false);
         ready.set(false);
         disconnect(); // Perform a soft disconnect
-        // The onClose event will likely be triggered next, which will handle the reconnect.
+        
+        // 发生错误时也尝试重连
+        if (!executor.isShutdown()) {
+            LOGGER.info("连接错误，将尝试重连");
+            scheduleReconnect();
+        }
     }
 
     @Override
@@ -273,7 +368,24 @@ public class FabricBridgeClient extends BridgeClient {
             LOGGER.warn("执行器已关闭，无法安排重连。");
             return;
         }
-        CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS).execute(this::connect);
+        
+        // 使用专门的重连调度器，避免在主执行器中阻塞
+        ScheduledExecutorService reconnectScheduler = Executors.newSingleThreadScheduledExecutor();
+        reconnectScheduler.schedule(() -> {
+            try {
+                LOGGER.info("正在尝试重新连接...");
+                connect();
+            } catch (Exception e) {
+                LOGGER.error("重连尝试失败", e);
+                // 如果重连失败，再次安排重连
+                if (!executor.isShutdown()) {
+                    scheduleReconnect();
+                }
+            } finally {
+                reconnectScheduler.shutdown();
+            }
+        }, 5, TimeUnit.SECONDS);
+        
         LOGGER.info("5秒后将尝试重连...");
     }
 

@@ -4,6 +4,7 @@ import org.lby123165.easybot.bridge.model.PlayerInfo;
 import org.lby123165.easybot.bridge.model.PlayerInfoWithRaw;
 import org.lby123165.easybot.bridge.packet.PlayerLoginResultPacket;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public abstract class BridgeClient {
@@ -29,6 +30,13 @@ public abstract class BridgeClient {
     public abstract void syncMessage(PlayerInfoWithRaw playerInfo, String message, boolean useCommand);
     public abstract void syncEnterExit(PlayerInfoWithRaw playerInfo, boolean isEnter);
     public abstract void syncDeathMessage(PlayerInfoWithRaw playerInfo, String deathMessage, String killerName);
+    
+    // 跨服聊天功能
+    public abstract void syncCrossServerMessage(PlayerInfoWithRaw playerInfo, String message);
+    
+    // 绑定相关功能
+    public abstract CompletableFuture<Map<String, Object>> getSocialAccount(String playerName);
+    public abstract CompletableFuture<Map<String, Object>> startBind(String playerName);
 
     // Setters and Getters
     public void setBehavior(BridgeBehavior behavior) {
