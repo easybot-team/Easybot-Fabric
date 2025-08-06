@@ -160,7 +160,7 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                     server.getOverworld(),
                     4, // Permission level 4 (console)
                     "EasyBot",
-                    Text.of("EasyBot"),
+                    Text.literal("EasyBot"),
                     server,
                     null
             );
@@ -247,7 +247,7 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         MutableText finalMessage = Text.empty();
         for (Segment segment : segments) {
             if (segment instanceof TextSegment textSegment) {
-                finalMessage.append(Text.of(textSegment.text));
+                finalMessage.append(Text.literal(textSegment.text));
 
             } else if (segment instanceof AtSegment atSegment) {
                 String atDisplayName = "@" + (atSegment.atPlayerNames.isEmpty()
@@ -257,7 +257,6 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 MutableText atText = Text.literal(atDisplayName).formatted(Formatting.GOLD);
                 String hoverInfo = String.format("社交账号: %s (%s)", atSegment.atUserName, atSegment.atUserId);
 
-                // FIX: Use Text.literal() instead of Text.of() to avoid InstantiationError
                 atText.styled(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hoverInfo))));
                 finalMessage.append(atText);
 
@@ -292,7 +291,7 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         // 踢出玩家
         ServerPlayerEntity player = server.getPlayerManager().getPlayer(packet.playerName);
         if (player != null) {
-            player.networkHandler.disconnect(Text.of(packet.kickMessage));
+            player.networkHandler.disconnect(Text.literal(packet.kickMessage));
             LOGGER.info("已将玩家 {} 踢出服务器，原因: 解绑账号", packet.playerName);
         }
     }

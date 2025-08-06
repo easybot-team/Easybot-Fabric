@@ -47,7 +47,7 @@ public class PlayerEventListener {
 
             client.login(playerInfo).thenAccept(result -> {
                 if (result.kick) {
-                    server.execute(() -> player.networkHandler.disconnect(Text.of(result.kickMessage)));
+                    server.execute(() -> player.networkHandler.disconnect(Text.literal(result.kickMessage)));
                     EasyBotFabric.LOGGER.info("正在踢出玩家 {}，原因：EasyBot登录检查不通过：{}", playerName, result.kickMessage);
                 } else {
                     PlayerInfoWithRaw infoWithRaw = new PlayerInfoWithRaw(playerInfo, playerName);
