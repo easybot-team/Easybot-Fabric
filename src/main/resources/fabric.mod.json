@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "easybotfabric",
-  "version": "0.4-beta",
+  "version": "1.0",
   "name": "EasyBot Fabric",
   "description": "一个基于Fabric的机器人插件，支持消息同步等功能。",
   "authors": ["lby123165"],
