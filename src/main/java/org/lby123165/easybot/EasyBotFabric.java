@@ -131,7 +131,7 @@ public class EasyBotFabric implements ModInitializer {
             bridgeClient = newBridgeClient;
             bridgeClient.connect();
         } catch (Exception e) {
-            LOGGER.error("WebSocket初始化时发生意外错误", e);
+            LOGGER.warn("WebSocket初始化时发生意外错误");
         }
     }
 
