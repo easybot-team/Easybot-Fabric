@@ -249,7 +249,7 @@ public class FabricBridgeClient extends BridgeClient {
                 ClientUpgradeRequest request = new ClientUpgradeRequest();
                 jettyClient.connect(this, serverUri, request);
             } catch (Exception e) {
-                LOGGER.error("连接失败", e);
+                LOGGER.warn("WebSocket连接失败");
                 scheduleReconnect();
             }
         });
@@ -316,7 +316,7 @@ public class FabricBridgeClient extends BridgeClient {
 
     @OnWebSocketError
     public void onError(Throwable cause) {
-        LOGGER.error("连接遇到错误", cause);
+        LOGGER.warn("WebSocket连接遇到错误");
         isConnected.set(false);
         ready.set(false);
         disconnect(); // Perform a soft disconnect
@@ -376,7 +376,7 @@ public class FabricBridgeClient extends BridgeClient {
                 LOGGER.info("正在尝试重新连接...");
                 connect();
             } catch (Exception e) {
-                LOGGER.error("重连尝试失败", e);
+                LOGGER.warn("WebSocket重连尝试失败");
                 // 如果重连失败，再次安排重连
                 if (!executor.isShutdown()) {
                     scheduleReconnect();

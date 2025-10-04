@@ -10,6 +10,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.HoverEvent;
 import net.minecraft.text.MutableText;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec2f;
@@ -254,20 +255,29 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                         ? atSegment.atUserName
                         : String.join(",", atSegment.atPlayerNames));
 
+                // 创建基本文本
                 MutableText atText = Text.literal(atDisplayName).formatted(Formatting.GOLD);
                 String hoverInfo = String.format("社交账号: %s (%s)", atSegment.atUserName, atSegment.atUserId);
 
-                atText.styled(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hoverInfo))));
+                // 从空样式开始创建，避免使用现有样式
+                Style atStyle = Style.EMPTY
+                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hoverInfo)));
+                
+                // 应用样式
+                atText.setStyle(atStyle);
                 finalMessage.append(atText);
 
             } else if (segment instanceof ImageSegment imageSegment) {
+                // 创建基本文本
                 MutableText imageText = Text.literal("[图片]").formatted(Formatting.GREEN);
 
-                // FIX: Use Text.literal() instead of Text.of() to avoid InstantiationError
-                imageText.styled(style -> style
+                // 从空样式开始创建，避免使用现有样式
+                Style imageStyle = Style.EMPTY
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("点击预览")))
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, imageSegment.url))
-                );
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, imageSegment.url));
+                
+                // 应用样式
+                imageText.setStyle(imageStyle);
                 finalMessage.append(imageText);
             }
         }
