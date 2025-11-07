@@ -34,7 +34,11 @@ public class FabricClientProfile {
         if (server == null) {
             return "Fabric Server";
         }
-        return server.getServerMotd();
+        String motd = server.getServerMotd();
+        if (motd == null || motd.isBlank()) {
+            return "Fabric Server";
+        }
+        return motd;
     }
 
     /**
