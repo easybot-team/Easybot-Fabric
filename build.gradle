@@ -11,6 +11,10 @@ group = project.maven_group
 repositories {
     maven { url = "https://maven.fabricmc.net/" }
     mavenCentral()
+    maven {
+        url "https://maven.nucleoid.xyz/"
+        name "Nucleoid"
+    }
 }
 
 dependencies {
@@ -50,6 +54,17 @@ dependencies {
     include "org.eclipse.jetty:jetty-io:${jettyVersion}"
     modImplementation "org.eclipse.jetty:jetty-util:${jettyVersion}"
     include "org.eclipse.jetty:jetty-util:${jettyVersion}"
+
+    // lombok
+    compileOnly("org.projectlombok:lombok:1.18.42")
+    annotationProcessor("org.projectlombok:lombok:1.18.42")
+
+    testCompileOnly("org.projectlombok:lombok:1.18.42")
+    testAnnotationProcessor("org.projectlombok:lombok:1.18.42")
+
+    // placeholder api fabric
+    modImplementation include("eu.pb4:placeholder-api:2.8.1+1.21.10")
+    include "eu.pb4:placeholder-api:2.8.1+1.21.10"
 }
 
 // --- 所有 shadowJar 和 remapJar 的自定义配置都已被移除，Loom 会自动处理 ---
