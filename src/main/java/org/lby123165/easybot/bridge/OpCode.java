@@ -1,5 +1,8 @@
 package org.lby123165.easybot.bridge;
 
+import lombok.Getter;
+
+@Getter
 public enum OpCode {
     Hello(0),
     Identify(1),
@@ -12,10 +15,6 @@ public enum OpCode {
 
     OpCode(int value) {
         this.value = value;
-    }
-
-    public int getValue() {
-        return value;
     }
 
     public static OpCode fromValue(int value) {
