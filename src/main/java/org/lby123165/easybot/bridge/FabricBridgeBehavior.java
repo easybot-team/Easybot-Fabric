@@ -21,6 +21,7 @@ import org.lby123165.easybot.bridge.model.FabricServerInfo;
 import org.lby123165.easybot.bridge.model.PlayerInfo;
 import org.lby123165.easybot.bridge.packet.*;
 import org.lby123165.easybot.duck.ILatencyProvider;
+import org.lby123165.easybot.util.PapiUtil;
 import org.lby123165.easybot.util.TextUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +57,9 @@ public class FabricBridgeBehavior extends BridgeBehavior {
             switch (command.execOp) {
                 case "PLAYER_LIST":
                 case "GET_SERVER_INFO":
+                case "PLACEHOLDER_API_QUERY":
+                    handlePlaceholder(command.callbackId, command.execOp, rawJson);
+                    break;
                 case "RUN_COMMAND":
                     if (command.callbackId == null) {
                         LOGGER.warn("收到需要回调但缺少 callback_id 的指令: {}", rawJson);
@@ -120,6 +124,31 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         });
     }
 
+    private void handlePlaceholder(String callbackId, String execOp, String rawJson) {
+        // papi result
+        PlaceholderApiQueryResultPacket papiPacket = new PlaceholderApiQueryResultPacket();
+        if (!FabricClientProfile.isPapiSupported()) {
+            papiPacket.setSuccess(false);
+            papiPacket.setText("未开启PAPI");
+            sendCallback(callbackId, execOp, papiPacket);
+            LOGGER.info("未开启PAPI,请检查是否安装了placeholder-api");
+            return;
+        }
+        try {
+            PlaceholderApiQueryPacket packet = GSON.fromJson(rawJson, PlaceholderApiQueryPacket.class);
+            ServerPlayerEntity player = this.server.getPlayerManager().getPlayer(packet.getPlayerName());
+            String s = PapiUtil.parsePlaceholders(packet.getText(), player);
+            papiPacket.setText(s);
+            papiPacket.setSuccess(true);
+            sendCallback(callbackId, execOp, papiPacket);
+            LOGGER.info("外部解析成功：{}", papiPacket);
+        } catch (Exception e) {
+            LOGGER.error("解析papi错误：{}", rawJson);
+            papiPacket.setSuccess(false);
+            papiPacket.setText("ERROR");
+            sendCallback(callbackId, execOp, rawJson);
+        }
+    }
 
     private void handleRunCommand(String callbackId, String execOp, String rawJson) {
         RunCommandPacket packet = GSON.fromJson(rawJson, RunCommandPacket.class);
@@ -146,12 +175,21 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 public void sendMessage(Text message) {
                     capturedMessages.add(message);
                 }
+
                 @Override
-                public boolean shouldReceiveFeedback() { return true; }
+                public boolean shouldReceiveFeedback() {
+                    return true;
+                }
+
                 @Override
-                public boolean shouldTrackOutput() { return true; }
+                public boolean shouldTrackOutput() {
+                    return true;
+                }
+
                 @Override
-                public boolean shouldBroadcastConsoleToOps() { return false; }
+                public boolean shouldBroadcastConsoleToOps() {
+                    return false;
+                }
             };
 
             ServerCommandSource source = new ServerCommandSource(
@@ -239,7 +277,7 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         }
 
         if (segments == null || segments.isEmpty()) {
-            if (fallbackText != null && !fallbackText.isEmpty()){
+            if (fallbackText != null && !fallbackText.isEmpty()) {
                 server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(fallbackText), false);
             }
             return;
@@ -262,7 +300,7 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 // 从空样式开始创建，避免使用现有样式
                 Style atStyle = Style.EMPTY
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hoverInfo)));
-                
+
                 // 应用样式
                 atText.setStyle(atStyle);
                 finalMessage.append(atText);
@@ -275,7 +313,7 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 Style imageStyle = Style.EMPTY
                         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("点击预览")))
                         .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, imageSegment.url));
-                
+
                 // 应用样式
                 imageText.setStyle(imageStyle);
                 finalMessage.append(imageText);
@@ -292,12 +330,12 @@ public class FabricBridgeBehavior extends BridgeBehavior {
 
     private void handleUnbindNotify(String rawJson) {
         PlayerUnBindNotifyPacket packet = GSON.fromJson(rawJson, PlayerUnBindNotifyPacket.class);
-        
+
         // 处理白名单
         if (EasyBotFabric.getConfig().enableWhiteList) {
             org.lby123165.easybot.util.WhitelistUtil.handleUnbind(packet.playerName, server);
         }
-        
+
         // 踢出玩家
         ServerPlayerEntity player = server.getPlayerManager().getPlayer(packet.playerName);
         if (player != null) {
@@ -310,26 +348,26 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         BindSuccessNotifyPacket packet = GSON.fromJson(rawJson, BindSuccessNotifyPacket.class);
         String message = String.format("§a[EasyBot] 玩家 %s 成功绑定账号 %s (%s)", packet.playerName, packet.accountName, packet.accountId);
         server.getPlayerManager().broadcast(TextUtil.parseLegacyColor(message), false);
-        
+
         // 处理白名单
         if (EasyBotFabric.getConfig().enableWhiteList) {
             org.lby123165.easybot.util.WhitelistUtil.handleBindSuccess(packet.playerName, server);
         }
-        
+
         // 执行绑定成功事件配置的命令
-        if (EasyBotFabric.getConfig().events.enableSuccessEvent && 
-            EasyBotFabric.getConfig().events.bindSuccess != null && 
-            !EasyBotFabric.getConfig().events.bindSuccess.isEmpty()) {
-            
+        if (EasyBotFabric.getConfig().events.enableSuccessEvent &&
+                EasyBotFabric.getConfig().events.bindSuccess != null &&
+                !EasyBotFabric.getConfig().events.bindSuccess.isEmpty()) {
+
             for (String cmd : EasyBotFabric.getConfig().events.bindSuccess) {
                 String processedCmd = cmd
-                    .replace("#player", packet.playerName)
-                    .replace("#name", packet.accountName)
-                    .replace("#account", packet.accountId);
-                
+                        .replace("#player", packet.playerName)
+                        .replace("#name", packet.accountName)
+                        .replace("#account", packet.accountId);
+
                 try {
                     server.getCommandManager().executeWithPrefix(
-                        server.getCommandSource(), processedCmd);
+                            server.getCommandSource(), processedCmd);
                 } catch (Exception e) {
                     LOGGER.error("执行绑定成功命令时出错: {}", processedCmd, e);
                 }
