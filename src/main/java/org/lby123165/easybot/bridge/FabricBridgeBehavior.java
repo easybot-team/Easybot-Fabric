@@ -55,13 +55,11 @@ public class FabricBridgeBehavior extends BridgeBehavior {
             }
 
             switch (command.execOp) {
-                case "PLAYER_LIST":
-                case "GET_SERVER_INFO":
-                    handleRunCommand(command.callbackId, command.execOp, rawJson);
-                    return;
                 case "PLACEHOLDER_API_QUERY":
                     handlePlaceholder(command.callbackId, command.execOp, rawJson);
                     break;
+                case "PLAYER_LIST":
+                case "GET_SERVER_INFO":
                 case "RUN_COMMAND":
                     if (command.callbackId == null) {
                         LOGGER.warn("收到需要回调但缺少 callback_id 的指令: {}", rawJson);
@@ -69,7 +67,6 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                     }
                     handleRequest(command, rawJson);
                     break;
-
                 case "SEND_TO_CHAT":
                 case "UN_BIND_NOTIFY":
                 case "BIND_SUCCESS_NOTIFY":
