@@ -57,6 +57,8 @@ public class FabricBridgeBehavior extends BridgeBehavior {
             switch (command.execOp) {
                 case "PLAYER_LIST":
                 case "GET_SERVER_INFO":
+                    handleRunCommand(command.callbackId, command.execOp, rawJson);
+                    return;
                 case "PLACEHOLDER_API_QUERY":
                     handlePlaceholder(command.callbackId, command.execOp, rawJson);
                     break;
@@ -192,17 +194,8 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 }
             };
 
-            ServerCommandSource source = new ServerCommandSource(
-                    commandOutput,
-                    Vec3d.of(server.getOverworld().getSpawnPos()),
-                    Vec2f.ZERO,
-                    server.getOverworld(),
-                    4, // Permission level 4 (console)
-                    "EasyBot",
-                    Text.literal("EasyBot"),
-                    server,
-                    null
-            );
+            ServerCommandSource source = new ServerCommandSource(commandOutput, Vec3d.of(server.getOverworld().getSpawnPos()), Vec2f.ZERO, server.getOverworld(), 4, // Permission level 4 (console)
+                    "EasyBot", Text.literal("EasyBot"), server, null);
 
             this.server.getCommandManager().executeWithPrefix(source, commandToRun);
 
@@ -246,22 +239,18 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 return;
             }
 
-            List<Segment> segments = StreamSupport.stream(extraElement.getAsJsonArray().spliterator(), false)
-                    .map(JsonElement::getAsJsonObject)
-                    .map(obj -> {
-                        SegmentType type = SegmentType.fromValue(obj.get("type").getAsInt());
-                        Class<? extends Segment> segmentClass = Segment.getSegmentClass(type);
-                        if (segmentClass != null) {
-                            Segment seg = GSON.fromJson(obj, segmentClass);
-                            if (FabricClientProfile.isDebugMode()) {
-                                LOGGER.debug("已解析段落： {}", GSON.toJson(seg));
-                            }
-                            return seg;
-                        }
-                        return null;
-                    })
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+            List<Segment> segments = StreamSupport.stream(extraElement.getAsJsonArray().spliterator(), false).map(JsonElement::getAsJsonObject).map(obj -> {
+                SegmentType type = SegmentType.fromValue(obj.get("type").getAsInt());
+                Class<? extends Segment> segmentClass = Segment.getSegmentClass(type);
+                if (segmentClass != null) {
+                    Segment seg = GSON.fromJson(obj, segmentClass);
+                    if (FabricClientProfile.isDebugMode()) {
+                        LOGGER.debug("已解析段落： {}", GSON.toJson(seg));
+                    }
+                    return seg;
+                }
+                return null;
+            }).filter(Objects::nonNull).collect(Collectors.toList());
 
             SyncToChatExtra(segments, text);
 
@@ -289,17 +278,14 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 finalMessage.append(Text.literal(textSegment.text));
 
             } else if (segment instanceof AtSegment atSegment) {
-                String atDisplayName = "@" + (atSegment.atPlayerNames.isEmpty()
-                        ? atSegment.atUserName
-                        : String.join(",", atSegment.atPlayerNames));
+                String atDisplayName = "@" + (atSegment.atPlayerNames.isEmpty() ? atSegment.atUserName : String.join(",", atSegment.atPlayerNames));
 
                 // 创建基本文本
                 MutableText atText = Text.literal(atDisplayName).formatted(Formatting.GOLD);
                 String hoverInfo = String.format("社交账号: %s (%s)", atSegment.atUserName, atSegment.atUserId);
 
                 // 从空样式开始创建，避免使用现有样式
-                Style atStyle = Style.EMPTY
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hoverInfo)));
+                Style atStyle = Style.EMPTY.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hoverInfo)));
 
                 // 应用样式
                 atText.setStyle(atStyle);
@@ -310,9 +296,7 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 MutableText imageText = Text.literal("[图片]").formatted(Formatting.GREEN);
 
                 // 从空样式开始创建，避免使用现有样式
-                Style imageStyle = Style.EMPTY
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("点击预览")))
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, imageSegment.url));
+                Style imageStyle = Style.EMPTY.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("点击预览"))).withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, imageSegment.url));
 
                 // 应用样式
                 imageText.setStyle(imageStyle);
@@ -355,19 +339,13 @@ public class FabricBridgeBehavior extends BridgeBehavior {
         }
 
         // 执行绑定成功事件配置的命令
-        if (EasyBotFabric.getConfig().events.enableSuccessEvent &&
-                EasyBotFabric.getConfig().events.bindSuccess != null &&
-                !EasyBotFabric.getConfig().events.bindSuccess.isEmpty()) {
+        if (EasyBotFabric.getConfig().events.enableSuccessEvent && EasyBotFabric.getConfig().events.bindSuccess != null && !EasyBotFabric.getConfig().events.bindSuccess.isEmpty()) {
 
             for (String cmd : EasyBotFabric.getConfig().events.bindSuccess) {
-                String processedCmd = cmd
-                        .replace("#player", packet.playerName)
-                        .replace("#name", packet.accountName)
-                        .replace("#account", packet.accountId);
+                String processedCmd = cmd.replace("#player", packet.playerName).replace("#name", packet.accountName).replace("#account", packet.accountId);
 
                 try {
-                    server.getCommandManager().executeWithPrefix(
-                            server.getCommandSource(), processedCmd);
+                    server.getCommandManager().executeWithPrefix(server.getCommandSource(), processedCmd);
                 } catch (Exception e) {
                     LOGGER.error("执行绑定成功命令时出错: {}", processedCmd, e);
                 }
@@ -423,16 +401,7 @@ public class FabricBridgeBehavior extends BridgeBehavior {
             for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
                 int latency = ((ILatencyProvider) player.networkHandler).getLatency();
 
-                players.add(new PlayerInfo(
-                        player.getName().getString(),
-                        player.getUuid().toString(),
-                        player.getDisplayName().getString(),
-                        latency,
-                        player.getWorld().getRegistryKey().getValue().toString(),
-                        player.getX(),
-                        player.getY(),
-                        player.getZ()
-                ));
+                players.add(new PlayerInfo(player.getName().getString(), player.getUuid().toString(), player.getDisplayName().getString(), latency, player.getWorld().getRegistryKey().getValue().toString(), player.getX(), player.getY(), player.getZ()));
             }
         }
         return players;
