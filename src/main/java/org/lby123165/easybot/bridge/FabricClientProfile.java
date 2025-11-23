@@ -34,7 +34,7 @@ public class FabricClientProfile {
         if (server == null) {
             return "Unknown Fabric Server";
         }
-        return server.getVersion();
+        return "Fabric " + server.getVersion();
     }
 
     /**
