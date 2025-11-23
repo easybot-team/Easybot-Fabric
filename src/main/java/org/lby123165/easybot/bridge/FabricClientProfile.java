@@ -26,19 +26,15 @@ public class FabricClientProfile {
     }
 
     /**
-     * 获取服务器描述
-     * @return 服务器描述
+     * 获取服务器版本信息
+     * @return 服务器版本
      */
     public static String getServerDescription() {
         MinecraftServer server = EasyBotFabric.getMinecraftServer();
         if (server == null) {
-            return "Fabric Server";
+            return "Unknown Fabric Server";
         }
-        String motd = server.getServerMotd();
-        if (motd == null || motd.isBlank()) {
-            return "Fabric Server";
-        }
-        return motd;
+        return server.getVersion();
     }
 
     /**

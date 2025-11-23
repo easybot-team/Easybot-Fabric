@@ -343,9 +343,9 @@ public class FabricBridgeClient extends BridgeClient {
     private void sendIdentifyPacket() {
         EasyBotConfig config = EasyBotFabric.getConfig();
         String pluginVersion = FabricClientProfile.getPluginVersion();
-        String serverDescription = FabricClientProfile.getServerDescription();
+        String serverVersion = FabricClientProfile.getServerDescription(); 
         LOGGER.info("收到服务器 Hello，正在回复 Identify 包。");
-        IdentifyPacket packet = new IdentifyPacket(config.token, pluginVersion, serverDescription);
+        IdentifyPacket packet = new IdentifyPacket(config.token, pluginVersion, serverVersion);
         sendMessage(GSON.toJson(packet));
     }
 
