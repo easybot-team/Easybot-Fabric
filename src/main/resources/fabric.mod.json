@@ -12,7 +12,7 @@
   "environment": "server",
   "entrypoints": {
     "main": [
-      "org.lby123165.easybot.EasyBotFabric"
+      "org.easybot.easybotfabric.EasyBotFabric"
     ]
   },
   "mixins": [
