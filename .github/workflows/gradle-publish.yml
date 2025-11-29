@@ -94,28 +94,6 @@ jobs:
             echo "release_exists=false" >> $GITHUB_OUTPUT
             echo "Release for tag $TAG_NAME does not exist, proceeding..."
           fi
-          
-      # 如果存在相同版本的Release，发送邮件通知并终止工作流
-      - name: Send email notification for duplicate version
-        if: steps.check-release.outputs.release_exists == 'true'
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: Failed to create release - Duplicate version ${{ steps.extract-info.outputs.VERSION }}
-          body: |
-            Dear contributors,
-            
-            The release workflow failed because release for version v${{ steps.extract-info.outputs.VERSION }} already exists.
-            Please check the GitHub Actions workflow for more details:
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            
-            Regards,
-            GitHub Actions
-          to: ${{ secrets.EMAIL_RECIPIENTS }}
-          from: GitHub Actions <${{ secrets.SMTP_SENDER }}>
       
       # 终止工作流如果存在相同版本的Release
       - name: Fail workflow if release exists
