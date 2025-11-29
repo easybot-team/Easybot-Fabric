@@ -74,36 +74,59 @@ jobs:
           fi
           echo "Main jar file exists, proceeding with release..."
       
-      # 检查是否已存在相同版本的tag
-      - name: Check for existing tag
-        id: check-tag
+      # 检查是否已存在相同版本的Release
+      - name: Check for existing release
+        id: check-release
         run: |
           TAG_NAME="v${{ steps.extract-info.outputs.VERSION }}"
-          echo "Checking if tag $TAG_NAME exists in remote repository..."
+          echo "Checking if release for tag $TAG_NAME exists..."
           
-          # 获取所有远程tag并检查目标tag是否存在，使用更可靠的方法
-          REMOTE_TAGS=$(git ls-remote --tags origin | awk '{print $2}' | sed 's/refs\/tags\///')
+          # 使用GitHub API检查Release是否存在
+          RELEASE_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG_NAME")
           
-          if echo "$REMOTE_TAGS" | grep -F "$TAG_NAME" > /dev/null 2>&1; then
-            echo "tag_exists=true" >> $GITHUB_OUTPUT
-            echo "Error: Tag $TAG_NAME already exists in remote repository!"
-            echo "Remote tags: $REMOTE_TAGS"
+          # 检查响应中是否包含"tag_name"字段，或者检查HTTP状态码
+          if echo "$RELEASE_RESPONSE" | grep -q "tag_name"; then
+            echo "release_exists=true" >> $GITHUB_OUTPUT
+            echo "Error: Release for tag $TAG_NAME already exists!"
+            echo "Release info: $RELEASE_RESPONSE"
           else
-            echo "tag_exists=false" >> $GITHUB_OUTPUT
-            echo "Tag $TAG_NAME does not exist in remote repository, proceeding..."
-            echo "Remote tags: $REMOTE_TAGS"
+            echo "release_exists=false" >> $GITHUB_OUTPUT
+            echo "Release for tag $TAG_NAME does not exist, proceeding..."
           fi
           
-      # 终止工作流如果存在相同版本的tag
-      - name: Fail workflow if tag exists
-        if: steps.check-tag.outputs.tag_exists == 'true'
+      # 如果存在相同版本的Release，发送邮件通知并终止工作流
+      - name: Send email notification for duplicate version
+        if: steps.check-release.outputs.release_exists == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: Failed to create release - Duplicate version ${{ steps.extract-info.outputs.VERSION }}
+          body: |
+            Dear contributors,
+            
+            The release workflow failed because release for version v${{ steps.extract-info.outputs.VERSION }} already exists.
+            Please check the GitHub Actions workflow for more details:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Regards,
+            GitHub Actions
+          to: ${{ secrets.EMAIL_RECIPIENTS }}
+          from: GitHub Actions <${{ secrets.SMTP_SENDER }}>
+      
+      # 终止工作流如果存在相同版本的Release
+      - name: Fail workflow if release exists
+        if: steps.check-release.outputs.release_exists == 'true'
         run: |
-          echo "Duplicate version found, terminating workflow..."
-          exit 0
+          echo "Duplicate release found, terminating workflow..."
+          exit 1
       
       # 创建Release并上传构建的JAR文件
       - name: Create Release and Upload Assets
-        if: steps.check-tag.outputs.tag_exists == 'false'
+        if: steps.check-release.outputs.release_exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.extract-info.outputs.VERSION }}
