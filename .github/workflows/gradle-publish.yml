@@ -79,13 +79,19 @@ jobs:
         id: check-tag
         run: |
           TAG_NAME="v${{ steps.extract-info.outputs.VERSION }}"
-          # 使用git ls-remote检查远程仓库中是否存在该tag，更准确可靠
-          if git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -q "$TAG_NAME"; then
+          echo "Checking if tag $TAG_NAME exists in remote repository..."
+          
+          # 获取所有远程tag并检查目标tag是否存在，使用更可靠的方法
+          REMOTE_TAGS=$(git ls-remote --tags origin | awk '{print $2}' | sed 's/refs\/tags\///')
+          
+          if echo "$REMOTE_TAGS" | grep -F "$TAG_NAME" > /dev/null 2>&1; then
             echo "tag_exists=true" >> $GITHUB_OUTPUT
             echo "Error: Tag $TAG_NAME already exists in remote repository!"
+            echo "Remote tags: $REMOTE_TAGS"
           else
             echo "tag_exists=false" >> $GITHUB_OUTPUT
             echo "Tag $TAG_NAME does not exist in remote repository, proceeding..."
+            echo "Remote tags: $REMOTE_TAGS"
           fi
           
       # 终止工作流如果存在相同版本的tag
