@@ -72,8 +72,51 @@ jobs:
           fi
           echo "Main jar file exists, proceeding with release..."
       
+      # 检查是否已存在相同版本的tag
+      - name: Check for existing tag
+        id: check-tag
+        run: |
+          TAG_NAME="v${{ steps.extract-info.outputs.VERSION }}"
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "Error: Tag $TAG_NAME already exists!"
+          else
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+            echo "Tag $TAG_NAME does not exist, proceeding..."
+          fi
+      
+      # 如果存在相同版本的tag，发送邮件通知并终止工作流
+      - name: Send email notification for duplicate version
+        if: steps.check-tag.outputs.tag_exists == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: Failed to create release - Duplicate version ${{ steps.extract-info.outputs.VERSION }}
+          body: |
+            Dear contributors,
+            
+            The release workflow failed because version v${{ steps.extract-info.outputs.VERSION }} already exists.
+            Please check the GitHub Actions workflow for more details:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Regards,
+            GitHub Actions
+          to: ${{ secrets.EMAIL_RECIPIENTS }}
+          from: GitHub Actions <${{ secrets.SMTP_SENDER }}>
+      
+      # 终止工作流如果存在相同版本的tag
+      - name: Fail workflow if tag exists
+        if: steps.check-tag.outputs.tag_exists == 'true'
+        run: |
+          echo "Duplicate version found, terminating workflow..."
+          exit 1
+      
       # 创建Release并上传构建的JAR文件
       - name: Create Release and Upload Assets
+        if: steps.check-tag.outputs.tag_exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.extract-info.outputs.VERSION }}
