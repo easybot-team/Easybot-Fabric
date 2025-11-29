@@ -1,13 +1,15 @@
 # 工作流名称
 name: Build and Publish to Release
 
-# 触发条件：当推送到master分支时执行
+# 触发条件：当推送到master分支或手动触发时执行
 on:
   push:
     branches: [ "master" ]
     # 忽略标签推送，避免重复构建
     tags-ignore:
       - 'v*'
+  # 允许手动触发工作流
+  workflow_dispatch:
 
 jobs:
   build-and-publish:
