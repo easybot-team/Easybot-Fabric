@@ -105,9 +105,7 @@ jobs:
             ### 版本信息
             - Minecraft: ${{ steps.extract-info.outputs.MINECRAFT_VERSION }}
             - Fabric: ${{ steps.extract-info.outputs.FABRIC_VERSION }}
-            
-            ### 更新内容
-            *查看自动生成的更新日志获取详细信息*
+          
           draft: false
           prerelease: contains('${{ steps.extract-info.outputs.VERSION }}', 'beta') || contains('${{ steps.extract-info.outputs.VERSION }}', 'alpha')
           generate_release_notes: true
