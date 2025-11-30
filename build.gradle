@@ -1,8 +1,8 @@
-// 主项目构建配置 - 多版本支持
+// 主项目构建配置 - 作为可被依赖的库
 plugins {
-    // 主项目不使用loom，仅子项目使用
     id 'java'
     id 'maven-publish'
+    id 'fabric-loom' version '1.10.5'
 }
 
 // 定义支持的Minecraft版本 - 常用版本全版本适配
@@ -12,10 +12,48 @@ def supportedVersions = [
     '1.21.8'
 ]
 
+// 主项目依赖配置
+dependencies {
+    // 基础依赖，不包含版本特定的依赖
+    minecraft "com.mojang:minecraft:1.21.1"
+    mappings "net.fabricmc:yarn:1.21.1+build.3:v2"
+    modImplementation "net.fabricmc:fabric-loader:0.15.11"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:0.115.6+1.21.1"
+    
+    // --- 关键修复：明确声明 Jetty 的所有必需组件 ---
+    def jettyVersion = "9.4.55.v20240627"
+    modImplementation "org.eclipse.jetty.websocket:websocket-client:${jettyVersion}"
+    include "org.eclipse.jetty.websocket:websocket-client:${jettyVersion}"
+    modImplementation "org.eclipse.jetty.websocket:websocket-common:${jettyVersion}"
+    include "org.eclipse.jetty.websocket:websocket-common:${jettyVersion}"
+    modImplementation "org.eclipse.jetty.websocket:websocket-api:${jettyVersion}"
+    include "org.eclipse.jetty.websocket:websocket-api:${jettyVersion}"
+    modImplementation "org.eclipse.jetty:jetty-client:${jettyVersion}"
+    include "org.eclipse.jetty:jetty-client:${jettyVersion}"
+    modImplementation "org.eclipse.jetty:jetty-http:${jettyVersion}"
+    include "org.eclipse.jetty:jetty-http:${jettyVersion}"
+    modImplementation "org.eclipse.jetty:jetty-io:${jettyVersion}"
+    include "org.eclipse.jetty:jetty-io:${jettyVersion}"
+    modImplementation "org.eclipse.jetty:jetty-util:${jettyVersion}"
+    include "org.eclipse.jetty:jetty-util:${jettyVersion}"
+    
+    // lombok
+    compileOnly("org.projectlombok:lombok:1.18.42")
+    annotationProcessor("org.projectlombok:lombok:1.18.42")
+    testCompileOnly("org.projectlombok:lombok:1.18.42")
+    testAnnotationProcessor("org.projectlombok:lombok:1.18.42")
+}
+
 // 所有子项目的公共配置
 subprojects {
     apply plugin: 'maven-publish'
     apply plugin: 'java'
+    apply plugin: 'fabric-loom'
+    
+    // 依赖主项目
+    dependencies {
+        implementation project(':')
+    }
 
     // 从主项目的gradle.properties读取公共配置
     group = rootProject.properties['maven_group']

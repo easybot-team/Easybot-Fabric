@@ -124,34 +124,16 @@ public class TextUtil {
                 String styledContent = markdownBuilder.substring(startIndex);
                 markdownBuilder.setLength(startIndex); // 回滚
                 
-                // 使用反射获取URL，适配不同版本的API
-                String url = "";
-                try {
-                    // 尝试调用新版本API
-                    url = (String) clickEvent.getClass().getMethod("getValue").invoke(clickEvent);
-                } catch (Exception e) {
-                    // 旧版本API
-                    try {
-                        url = (String) clickEvent.getClass().getMethod("getValue").invoke(clickEvent);
-                    } catch (Exception ex) {
-                        // 无法获取URL，跳过
-                        markdownBuilder.append(styledContent);
-                        return;
-                    }
-                }
+                // 1.20.4版本使用getValue()方法
+                String url = clickEvent.getValue();
                 markdownBuilder.append("[").append(styledContent).append("](").append(url).append(")");
             }
 
             // 处理悬停事件 -> 转换为括号内的提示信息
             HoverEvent hoverEvent = part.getStyle().getHoverEvent();
             if (hoverEvent != null && hoverEvent.getAction() == HoverEvent.Action.SHOW_TEXT) {
-                Text hoverText = null;
-                try {
-                    // 尝试调用新版本API
-                    hoverText = (Text) hoverEvent.getClass().getMethod("getValue", HoverEvent.Action.class).invoke(hoverEvent, HoverEvent.Action.SHOW_TEXT);
-                } catch (Exception e) {
-                    // 无法获取悬停文本，跳过
-                }
+                // 1.20.4版本使用getValue()方法
+                Text hoverText = hoverEvent.getValue(HoverEvent.Action.SHOW_TEXT);
                 if (hoverText != null) {
                     markdownBuilder.append(" (悬停提示: ").append(hoverText.getString()).append(")");
                 }

@@ -47,11 +47,12 @@ dependencies {
     include "org.eclipse.jetty:jetty-util:${jettyVersion}"
 }
 
-// 配置源代码目录，指向主项目的src目录
+// 配置源代码目录，同时包含主项目和子项目的源代码
 sourceSets {
     main {
         java {
             srcDir rootProject.file('src/main/java')
+            srcDir 'src/main/java'
         }
         resources {
             srcDir rootProject.file('src/main/resources')

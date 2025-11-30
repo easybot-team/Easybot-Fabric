@@ -5,3 +5,4 @@
 /libs/
 versions/*/.gradle
 versions/*/build
+/.vscode/
