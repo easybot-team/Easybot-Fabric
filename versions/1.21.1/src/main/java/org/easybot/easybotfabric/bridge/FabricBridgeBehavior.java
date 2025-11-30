@@ -285,7 +285,37 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 String hoverInfo = String.format("社交账号: %s (%s)", atSegment.atUserName, atSegment.atUserId);
 
                 // 从空样式开始创建，避免使用现有样式
-                Style atStyle = Style.EMPTY.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hoverInfo)));
+                Style atStyle = Style.EMPTY;
+                
+                // 使用反射创建HoverEvent
+                try {
+                    // 获取Style.EMPTY.withHoverEvent方法
+                    java.lang.reflect.Method withHoverEventMethod = Style.class.getMethod("withHoverEvent", HoverEvent.class);
+                    
+                    // 创建HoverEvent实例
+                    Object hoverEvent = null;
+                    try {
+                        // 尝试使用新版本API - 查找静态工厂方法
+                        java.lang.reflect.Method hoverEventOfMethod = HoverEvent.class.getMethod("of", HoverEvent.Action.class, Text.class);
+                        hoverEvent = hoverEventOfMethod.invoke(null, HoverEvent.Action.SHOW_TEXT, Text.literal(hoverInfo));
+                    } catch (Exception e1) {
+                        try {
+                            // 尝试使用构造函数
+                            java.lang.reflect.Constructor<?> hoverEventConstructor = HoverEvent.class.getConstructor(HoverEvent.Action.class, Text.class);
+                            hoverEvent = hoverEventConstructor.newInstance(HoverEvent.Action.SHOW_TEXT, Text.literal(hoverInfo));
+                        } catch (Exception e2) {
+                            // 如果无法创建HoverEvent，跳过
+                            LOGGER.error("无法创建HoverEvent: {}", e2.getMessage());
+                        }
+                    }
+                    
+                    if (hoverEvent != null) {
+                        // 调用withHoverEvent方法
+                        atStyle = (Style) withHoverEventMethod.invoke(Style.EMPTY, hoverEvent);
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("处理HoverEvent时出错: {}", e.getMessage());
+                }
 
                 // 应用样式
                 atText.setStyle(atStyle);
@@ -296,7 +326,58 @@ public class FabricBridgeBehavior extends BridgeBehavior {
                 MutableText imageText = Text.literal("[图片]").formatted(Formatting.GREEN);
 
                 // 从空样式开始创建，避免使用现有样式
-                Style imageStyle = Style.EMPTY.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("点击预览"))).withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, imageSegment.url));
+                Style imageStyle = Style.EMPTY;
+                
+                // 使用反射创建样式
+                try {
+                    // 获取Style.withHoverEvent和Style.withClickEvent方法
+                    java.lang.reflect.Method withHoverEventMethod = Style.class.getMethod("withHoverEvent", HoverEvent.class);
+                    java.lang.reflect.Method withClickEventMethod = Style.class.getMethod("withClickEvent", ClickEvent.class);
+                    
+                    // 创建HoverEvent实例
+                    Object hoverEvent = null;
+                    try {
+                        // 尝试使用新版本API - 查找静态工厂方法
+                        java.lang.reflect.Method hoverEventOfMethod = HoverEvent.class.getMethod("of", HoverEvent.Action.class, Text.class);
+                        hoverEvent = hoverEventOfMethod.invoke(null, HoverEvent.Action.SHOW_TEXT, Text.literal("点击预览"));
+                    } catch (Exception e1) {
+                        try {
+                            // 尝试使用构造函数
+                            java.lang.reflect.Constructor<?> hoverEventConstructor = HoverEvent.class.getConstructor(HoverEvent.Action.class, Text.class);
+                            hoverEvent = hoverEventConstructor.newInstance(HoverEvent.Action.SHOW_TEXT, Text.literal("点击预览"));
+                        } catch (Exception e2) {
+                            // 如果无法创建HoverEvent，跳过
+                            LOGGER.error("无法创建HoverEvent: {}", e2.getMessage());
+                        }
+                    }
+                    
+                    // 创建ClickEvent实例
+                    Object clickEvent = null;
+                    try {
+                        // 尝试使用新版本API - 查找静态工厂方法
+                        java.lang.reflect.Method clickEventOfMethod = ClickEvent.class.getMethod("of", ClickEvent.Action.class, String.class);
+                        clickEvent = clickEventOfMethod.invoke(null, ClickEvent.Action.OPEN_URL, imageSegment.url);
+                    } catch (Exception e1) {
+                        try {
+                            // 尝试使用构造函数
+                            java.lang.reflect.Constructor<?> clickEventConstructor = ClickEvent.class.getConstructor(ClickEvent.Action.class, String.class);
+                            clickEvent = clickEventConstructor.newInstance(ClickEvent.Action.OPEN_URL, imageSegment.url);
+                        } catch (Exception e2) {
+                            // 如果无法创建ClickEvent，跳过
+                            LOGGER.error("无法创建ClickEvent: {}", e2.getMessage());
+                        }
+                    }
+                    
+                    // 应用样式
+                    if (hoverEvent != null) {
+                        imageStyle = (Style) withHoverEventMethod.invoke(imageStyle, hoverEvent);
+                    }
+                    if (clickEvent != null) {
+                        imageStyle = (Style) withClickEventMethod.invoke(imageStyle, clickEvent);
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("处理样式时出错: {}", e.getMessage());
+                }
 
                 // 应用样式
                 imageText.setStyle(imageStyle);

@@ -123,12 +123,16 @@ public class TextUtil {
                 // 将刚刚添加的整个部分格式化为 [text](url)
                 String styledContent = markdownBuilder.substring(startIndex);
                 markdownBuilder.setLength(startIndex); // 回滚
-                markdownBuilder.append("[").append(styledContent).append("](").append(clickEvent.getValue()).append(")");
+                
+                // 1.20.4版本使用getValue()方法
+                String url = clickEvent.getValue();
+                markdownBuilder.append("[").append(styledContent).append("](").append(url).append(")");
             }
 
             // 处理悬停事件 -> 转换为括号内的提示信息
             HoverEvent hoverEvent = part.getStyle().getHoverEvent();
             if (hoverEvent != null && hoverEvent.getAction() == HoverEvent.Action.SHOW_TEXT) {
+                // 1.20.4版本使用getValue()方法
                 Text hoverText = hoverEvent.getValue(HoverEvent.Action.SHOW_TEXT);
                 if (hoverText != null) {
                     markdownBuilder.append(" (悬停提示: ").append(hoverText.getString()).append(")");
