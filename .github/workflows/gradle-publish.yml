@@ -1,10 +1,10 @@
 # 工作流名称
 name: Build and Publish to Release
 
-# 触发条件：当推送到master分支或手动触发时执行
+# 触发条件：当推送到master或develop分支，或手动触发时执行
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "develop" ]
     # 忽略标签推送，避免重复构建
     tags-ignore:
       - 'v*'
@@ -43,9 +43,9 @@ jobs:
       - name: Add execute permission
         run: chmod +x ./gradlew
       
-      # 构建项目，使用remapJar任务生成正确的Fabric mod jar文件
+      # 构建项目，使用buildAllVersions任务生成所有版本的Fabric mod jar文件
       - name: Build with Gradle
-        run: ./gradlew remapJar build
+        run: ./gradlew buildAllVersions
       
       # 提取版本信息和项目信息
       - name: Extract project info
@@ -53,29 +53,36 @@ jobs:
         run: |
           VERSION=$(grep -oP 'mod_version=\K.*' gradle.properties)
           ARCHIVE_NAME=$(grep -oP 'archives_base_name=\K.*' gradle.properties)
-          MINECRAFT_VERSION=$(grep -oP 'minecraft_version=\K.*' gradle.properties)
-          FABRIC_VERSION=$(grep -oP 'fabric_version=\K.*' gradle.properties)
           
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
-          echo "MINECRAFT_VERSION=$MINECRAFT_VERSION" >> $GITHUB_OUTPUT
-          echo "FABRIC_VERSION=$FABRIC_VERSION" >> $GITHUB_OUTPUT
       
       # 显示构建结果，确认jar文件位置
       - name: List build artifacts
-        run: find build/libs -type f
+        run: find versions -name "*.jar" -type f
         
-      # 验证主jar文件是否生成
-      - name: Verify main jar exists
+      # 验证至少有一个jar文件生成
+      - name: Verify jar files exist
         run: |
-          if [ ! "$(find build/libs -name "${{ steps.extract-info.outputs.ARCHIVE_NAME }}-${{ steps.extract-info.outputs.VERSION }}.jar" -type f)" ]; then
-            echo "Error: Main jar file not found!"
+          if [ ! "$(find versions -name "*.jar" -type f)" ]; then
+            echo "Error: No jar files found!"
             exit 1
           fi
-          echo "Main jar file exists, proceeding with release..."
+          echo "Jar files exist, proceeding with release..."
       
-      # 检查是否已存在相同版本的Release
+      # 只在master分支上创建Release
+      - name: Check if on master branch
+        id: check-branch
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/master" ]; then
+            echo "on_master=true" >> $GITHUB_OUTPUT
+          else
+            echo "on_master=false" >> $GITHUB_OUTPUT
+          fi
+      
+      # 只在master分支上检查是否已存在相同版本的Release
       - name: Check for existing release
+        if: steps.check-branch.outputs.on_master == 'true'
         id: check-release
         run: |
           TAG_NAME="v${{ steps.extract-info.outputs.VERSION }}"
@@ -95,16 +102,16 @@ jobs:
             echo "Release for tag $TAG_NAME does not exist, proceeding..."
           fi
       
-      # 终止工作流如果存在相同版本的Release
+      # 只在master分支上，如果存在相同版本的Release则终止工作流
       - name: Fail workflow if release exists
-        if: steps.check-release.outputs.release_exists == 'true'
+        if: steps.check-branch.outputs.on_master == 'true' && steps.check-release.outputs.release_exists == 'true'
         run: |
           echo "Duplicate release found, terminating workflow..."
           exit 1
       
-      # 创建Release并上传构建的JAR文件
+      # 只在master分支上创建Release并上传构建的JAR文件
       - name: Create Release and Upload Assets
-        if: steps.check-release.outputs.release_exists == 'false'
+        if: steps.check-branch.outputs.on_master == 'true' && steps.check-release.outputs.release_exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.extract-info.outputs.VERSION }}
@@ -112,16 +119,24 @@ jobs:
           body: |
             ## Easybot Fabric ${{ steps.extract-info.outputs.VERSION }}
             
-            ### 版本信息
-            - Minecraft: ${{ steps.extract-info.outputs.MINECRAFT_VERSION }}
-            - Fabric: ${{ steps.extract-info.outputs.FABRIC_VERSION }}
+            ### 支持的Minecraft版本
+            - 1.20.1
+            - 1.20.4
+            - 1.21.1
+            - 1.21.8
           
           draft: false
           prerelease: contains('${{ steps.extract-info.outputs.VERSION }}', 'beta') || contains('${{ steps.extract-info.outputs.VERSION }}', 'alpha')
           generate_release_notes: true
-          # 上传主jar文件和源码jar文件
+          # 上传所有版本的jar文件
           files: |
-            build/libs/${{ steps.extract-info.outputs.ARCHIVE_NAME }}-${{ steps.extract-info.outputs.VERSION }}.jar
-            build/libs/${{ steps.extract-info.outputs.ARCHIVE_NAME }}-${{ steps.extract-info.outputs.VERSION }}-sources.jar
+            versions/**/*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # 在develop分支上只构建，不创建Release
+      - name: Build only on develop branch
+        if: steps.check-branch.outputs.on_master == 'false'
+        run: |
+          echo "Build completed successfully on develop branch. No release created."
+          echo "Build artifacts can be found in versions/**/*.jar"
