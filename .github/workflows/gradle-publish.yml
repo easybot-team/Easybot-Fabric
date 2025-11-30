@@ -54,17 +54,27 @@ jobs:
           VERSION=$(grep -oP 'mod_version=\K.*' gradle.properties)
           ARCHIVE_NAME=$(grep -oP 'archives_base_name=\K.*' gradle.properties)
           
+          # 从build.gradle中提取支持的Minecraft版本
+          SUPPORTED_VERSIONS_LIST=$(grep -A 10 'def supportedVersions' build.gradle | grep -oP "'\K[0-9.]+(?=')")
+          
+          # 生成Markdown列表格式
+          SUPPORTED_VERSIONS=""
+          for version in $SUPPORTED_VERSIONS_LIST; do
+            SUPPORTED_VERSIONS="$SUPPORTED_VERSIONS\n- $version"
+          done
+          
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
+          echo "SUPPORTED_VERSIONS=$SUPPORTED_VERSIONS" >> $GITHUB_OUTPUT
       
       # 显示构建结果，确认jar文件位置
       - name: List build artifacts
-        run: find versions -name "*.jar" -type f
+        run: find versions -path "*/build/libs/*.jar" -type f
         
       # 验证至少有一个jar文件生成
       - name: Verify jar files exist
         run: |
-          if [ ! "$(find versions -name "*.jar" -type f)" ]; then
+          if [ ! "$(find versions -path "*/build/libs/*.jar" -type f)" ]; then
             echo "Error: No jar files found!"
             exit 1
           fi
@@ -120,17 +130,14 @@ jobs:
             ## Easybot Fabric ${{ steps.extract-info.outputs.VERSION }}
             
             ### 支持的Minecraft版本
-            - 1.20.1
-            - 1.20.4
-            - 1.21.1
-            - 1.21.8
+            ${{ steps.extract-info.outputs.SUPPORTED_VERSIONS }}
           
           draft: false
           prerelease: contains('${{ steps.extract-info.outputs.VERSION }}', 'beta') || contains('${{ steps.extract-info.outputs.VERSION }}', 'alpha')
           generate_release_notes: true
-          # 上传所有版本的jar文件
+          # 只上传每个子项目的build/libs目录下的目标产物jar文件
           files: |
-            versions/**/*.jar
+            versions/**/build/libs/*.jar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
