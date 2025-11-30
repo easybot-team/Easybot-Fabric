@@ -3,3 +3,5 @@
 /build/
 /.idea/
 /libs/
+versions/*/.gradle
+versions/*/build

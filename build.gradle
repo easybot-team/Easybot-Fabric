@@ -1,117 +1,94 @@
-// --- 最终方案：明确声明所有必需的编译和打包依赖 ---
+// 主项目构建配置 - 多版本支持
 plugins {
-    id 'fabric-loom' version '1.10.5'
+    // 主项目不使用loom，仅子项目使用
+    id 'java'
     id 'maven-publish'
 }
 
-version = project.mod_version
-group = project.maven_group
+// 定义支持的Minecraft版本 - 常用版本全版本适配
+def supportedVersions = [
+    '1.20.4',
+    '1.21.1',
+    '1.21.8'
+]
 
-// 保持仓库列表干净、最小化
-repositories {
-    maven { url = "https://maven.fabricmc.net/" }
-    mavenCentral()
-    maven {
-        url "https://maven.nucleoid.xyz/"
-        name "Nucleoid"
-    }
-}
+// 所有子项目的公共配置
+subprojects {
+    apply plugin: 'maven-publish'
+    apply plugin: 'java'
 
-dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    // 从主项目的gradle.properties读取公共配置
+    group = rootProject.properties['maven_group']
+    archivesBaseName = rootProject.properties['archives_base_name']
+    version = rootProject.properties['mod_version']
 
-    // Fabric API: 使用 modImplementation，这样它不会被打包
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-
-    // --- 关键修复：明确声明 Jetty 的所有必需组件 ---
-    def jettyVersion = "9.4.55.v20240627"
-
-    // 为了确保万无一失，我们手动为编译和打包声明所有相关的库
-    // 之前只声明了 websocket-client，现在我们把它所有的“兄弟”都加上
-
-    // WebSocket 客户端及其核心组件
-    modImplementation "org.eclipse.jetty.websocket:websocket-client:${jettyVersion}"
-    include "org.eclipse.jetty.websocket:websocket-client:${jettyVersion}"
-
-    // 包含 WebSocketContainerScope 的通用库 (这次崩溃的直接原因)
-    modImplementation "org.eclipse.jetty.websocket:websocket-common:${jettyVersion}"
-    include "org.eclipse.jetty.websocket:websocket-common:${jettyVersion}"
-
-    // 包含 @WebSocket 等注解的 API 库
-    modImplementation "org.eclipse.jetty.websocket:websocket-api:${jettyVersion}"
-    include "org.eclipse.jetty.websocket:websocket-api:${jettyVersion}"
-
-    // Jetty 的核心 HTTP 客户端
-    modImplementation "org.eclipse.jetty:jetty-client:${jettyVersion}"
-    include "org.eclipse.jetty:jetty-client:${jettyVersion}"
-
-    // Jetty 的底层组件
-    modImplementation "org.eclipse.jetty:jetty-http:${jettyVersion}"
-    include "org.eclipse.jetty:jetty-http:${jettyVersion}"
-    modImplementation "org.eclipse.jetty:jetty-io:${jettyVersion}"
-    include "org.eclipse.jetty:jetty-io:${jettyVersion}"
-    modImplementation "org.eclipse.jetty:jetty-util:${jettyVersion}"
-    include "org.eclipse.jetty:jetty-util:${jettyVersion}"
-
-    // lombok
-    compileOnly("org.projectlombok:lombok:1.18.42")
-    annotationProcessor("org.projectlombok:lombok:1.18.42")
-
-    testCompileOnly("org.projectlombok:lombok:1.18.42")
-    testAnnotationProcessor("org.projectlombok:lombok:1.18.42")
-
-    // placeholder api fabric
-    modImplementation include("eu.pb4:placeholder-api:2.8.1+1.21.10")
-    include "eu.pb4:placeholder-api:2.8.1+1.21.10"
-}
-
-// --- 所有 shadowJar 和 remapJar 的自定义配置都已被移除，Loom 会自动处理 ---
-
-processResources {
-    inputs.property "version", project.version
-    filteringCharset "UTF-8"
-
-    filesMatching("fabric.mod.json") {
-        expand "version": project.version
-    }
-}
-
-def targetJavaVersion = 17
-tasks.withType(JavaCompile).configureEach {
-    it.options.encoding = "UTF-8"
-    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-        it.options.release = targetJavaVersion
-    }
-}
-
-java {
-    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    if (JavaVersion.current() < javaVersion) {
-        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
-    }
-    archivesBaseName = project.archives_base_name
-    withSourcesJar()
-}
-
-jar {
-    from("LICENSE") {
-        rename { "${it}_${project.archives_base_name}" }
-    }
-}
-
-// 配置 Maven 发布
-// Loom 会确保 remapJar 任务生成正确的、包含依赖的最终产物
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            artifact remapJar
-            artifact remapSourcesJar
+    // 配置仓库，添加国内镜像加速下载
+    repositories {
+        // 国内镜像源，加速下载
+        maven { url = "https://maven.aliyun.com/repository/public/" }
+        maven { url = "https://mirrors.huaweicloud.com/repository/maven/" }
+        maven { url = "https://repo1.maven.org/maven2/" }
+        
+        // Fabric官方仓库
+        maven { url = "https://maven.fabricmc.net/" }
+        maven {
+            url "https://maven.nucleoid.xyz/"
+            name "Nucleoid"
         }
     }
 
-    repositories {
-        // 在此处添加要发布到的仓库
+    // lombok依赖 - 这些是Java标准依赖，不需要loom插件
+    dependencies {
+        compileOnly("org.projectlombok:lombok:1.18.42")
+        annotationProcessor("org.projectlombok:lombok:1.18.42")
+        testCompileOnly("org.projectlombok:lombok:1.18.42")
+        testAnnotationProcessor("org.projectlombok:lombok:1.18.42")
     }
+
+    processResources {
+        inputs.property "version", project.version
+        filteringCharset "UTF-8"
+
+        filesMatching("fabric.mod.json") {
+            expand "version": project.version
+        }
+    }
+
+    def targetJavaVersion = 17
+    tasks.withType(JavaCompile).configureEach {
+        it.options.encoding = "UTF-8"
+        if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
+            it.options.release = targetJavaVersion
+        }
+    }
+
+    java {
+        def javaVersion = JavaVersion.toVersion(targetJavaVersion)
+        if (JavaVersion.current() < javaVersion) {
+            toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+        }
+        withSourcesJar()
+    }
+
+    jar {
+        from(rootProject.file("LICENSE")) {
+            rename { "${it}_${project.archives_base_name}" }
+        }
+    }
+
+    // 子项目中配置 Maven 发布
+}
+
+// 创建一个聚合任务，用于构建所有版本
+task buildAllVersions {
+    group = "build"
+    description = "Builds all supported Minecraft versions"
+    dependsOn supportedVersions.collect { ":${it.replace('.', '-')}:remapJar" }
+}
+
+// 创建一个聚合任务，用于清理所有版本
+task cleanAllVersions {
+    group = "build"
+    description = "Cleans all supported Minecraft versions"
+    dependsOn supportedVersions.collect { ":${it.replace('.', '-')}:clean" }
 }
