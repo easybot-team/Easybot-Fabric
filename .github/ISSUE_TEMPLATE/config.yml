@@ -1,8 +1,1 @@
-blank_issues_enabled: false
-contact_links:
-  - name: 文档中心
-    url: https://docs.inectar.cn/
-    about: 请先查看官方文档
-  - name: qq用户群
-    url: https://qm.qq.com/q/WbJb8URSgI
-    about: 加入我们的qq用户群，与其他用户交流
+repository: easybot-team/.github
