@@ -1,0 +1,92 @@
+name: Bug Report
+description: Create a report to help us improve
+title: "[Bug]: "
+labels: ["bug"]
+assignees: ""
+body:
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: 问题描述
+      description: 请清晰、简洁地描述您遇到的bug。
+      placeholder: 例如：点击登录按钮时页面崩溃
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 预期行为
+      description: 请描述您预期会发生的行为。
+      placeholder: 例如：点击登录按钮后跳转到首页
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: 复现步骤
+      description: 请详细描述如何复现此bug。
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: 实际行为
+      description: 请描述实际发生的行为。
+      placeholder: 例如：页面显示空白，控制台报错
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: 操作系统
+      description: 请选择您使用的操作系统。
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: 浏览器
+      description: 请输入您使用的浏览器和版本。
+      placeholder: 例如：Chrome 119
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: 项目版本
+      description: 请输入您使用的项目版本。
+      placeholder: 例如：v1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: 附加信息
+      description: 添加任何其他相关信息，如截图、日志等。
+    validations:
+      required: false
+
+  - type: textarea
+    id: possible-solutions
+    attributes:
+      label: 可能的解决方案
+      description: 如果您有任何关于如何修复此bug的建议，请在此处列出。
+    validations:
+      required: false
