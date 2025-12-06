@@ -6,3 +6,4 @@
 versions/*/.gradle
 versions/*/build
 /.vscode/
+latest.log
