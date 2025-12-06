@@ -1,38 +1,13 @@
 {
   "token": "YOUR_TOKEN_HERE",
   "ws": "ws://127.0.0.1:26990/bridge",
-  "serverName": "fabric_server",
   "debug": false,
   "ignoreError": false,
-  "updateNotify": true,
-  "enableWhiteList": false,
   "message": {
     "bindStart": "[!] 绑定开始,请加群12345678输入: \"绑定 #code\" 进行绑定, 请在#time完成绑定!",
     "bindSuccess": "[!] 绑定 #account (#name) 成功!",
     "bindFail": "",
     "syncSuccess": ""
-  },
-  "events": {
-    "enableSuccessEvent": true,
-    "bindSuccess": [
-      "say 玩家#player绑定账号#name（#account）成功"
-    ],
-    "at": {
-      "enable": true,
-      "title": "§a有人@你",
-      "subTitle": "§a请及时处理",
-      "find": true,
-      "playSound": true,
-      "sound": 0
-    }
-  },
-  "botFilter": {
-    "enabled": true,
-    "prefixes": [
-      "Bot_",
-      "BOT_",
-      "bot_"
-    ]
   },
   "command": {
     "allowBind": true
@@ -42,12 +17,6 @@
     "skipQuit": false,
     "skipChat": false,
     "skipDeath": false
-  },
-  "adapter": {
-    "useNativeRcon": false,
-    "rconAddress": "127.0.0.1",
-    "rconPort": 25575,
-    "rconPassword": ""
   },
   "geyser": {
     "ignorePrefix": false
