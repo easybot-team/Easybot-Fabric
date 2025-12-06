@@ -7,3 +7,4 @@ versions/*/.gradle
 versions/*/build
 /.vscode/
 local.properties
+local.properties
