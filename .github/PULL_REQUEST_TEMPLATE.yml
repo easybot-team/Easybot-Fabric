@@ -1,0 +1,117 @@
+name: Pull Request
+description: Suggest changes to this project
+title: ""
+labels: ""
+assignees: ""
+body:
+  - type: checkboxes
+    id: pr-type
+    attributes:
+      label: PR类型
+      description: 请选择此PR的类型。
+      options:
+        - label: Bug修复
+        - label: 新功能
+        - label: 代码重构
+        - label: 文档更新
+        - label: 其他
+    validations:
+      required: true
+
+  - type: input
+    id: related-issue
+    attributes:
+      label: 关联Issue
+      description: 请关联与此PR相关的issue（如：Fixes #123）
+      placeholder: 例如：Fixes #123
+    validations:
+      required: false
+
+  - type: textarea
+    id: change-description
+    attributes:
+      label: 变更描述
+      description: 请清晰、简洁地描述此PR的主要变更内容。
+      placeholder: 例如：修复了登录功能的bug，添加了验证码验证
+    validations:
+      required: true
+
+  - type: textarea
+    id: main-changes
+    attributes:
+      label: 主要变更点
+      description: 请列出此PR的主要变更点。
+      placeholder: |
+        1. 修改了登录接口的验证码验证逻辑
+        2. 添加了验证码过期时间设置
+        3. 修复了验证码生成的bug
+    validations:
+      required: true
+
+  - type: textarea
+    id: change-motivation
+    attributes:
+      label: 变更动机
+      description: 请解释为什么需要这些变更，它们能解决什么问题？
+      placeholder: 例如：当前登录功能存在安全漏洞，需要添加验证码验证来防止暴力破解
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: testing-status
+    attributes:
+      label: 测试情况
+      description: 请描述您对此次变更进行的测试情况。
+      options:
+        - label: 单元测试通过
+        - label: 集成测试通过
+        - label: 手动测试通过
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependency-changes
+    attributes:
+      label: 依赖变更
+      description: 请列出此次变更引入的任何依赖变更。
+      placeholder: 例如：添加了captcha库作为依赖
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 注意事项
+      description: 请列出此次变更需要特别注意的事项。
+      placeholder: 例如：需要在生产环境配置验证码过期时间
+    validations:
+      required: false
+
+  - type: textarea
+    id: related-documents
+    attributes:
+      label: 相关文档
+      description: 请关联与此PR相关的文档链接。
+      placeholder: 例如：https://example.com/docs/login
+    validations:
+      required: false
+
+  - type: textarea
+    id: review-requests
+    attributes:
+      label: 审查请求
+      description: 请@相关人员进行审查。
+      placeholder: |
+        - @user1
+        - @user2
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: 其他信息
+      description: 添加任何其他相关信息。
+      placeholder: 例如：建议在合并前进行一次完整的回归测试
+    validations:
+      required: false
