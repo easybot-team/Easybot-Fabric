@@ -6,8 +6,6 @@ import com.springwater.easybot.threading.EasyBotNetworkingThreadPool;
 import com.springwater.easybot.utils.PlayerUtils;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.damagesource.DamageTypes;
-import net.minecraft.world.damagesource.DeathMessageType;
 import net.minecraft.world.entity.LivingEntity;
 
 import java.util.HashMap;
@@ -88,9 +86,7 @@ public class PlayerDeathSyncFeature implements IEasyBotFeatures {
                         deathReason.append(DEATH_MESSAGES.getOrDefault(path, "%s 死了").replace("%s", profile.name));
                     }
                 }
-                EasyBotNetworkingThreadPool.getInstance().addTask(() -> {
-                    EasyBotFabric.getBridgeClient().syncDeathMessage(profile, deathReason.toString(), killer.toString());
-                }, "消息同步-死亡");
+                EasyBotNetworkingThreadPool.getInstance().addTask(() -> EasyBotFabric.getBridgeClient().syncDeathMessage(profile, deathReason.toString(), killer.toString()), "消息同步-死亡");
             }
         });
     }
