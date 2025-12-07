@@ -9,13 +9,16 @@ import com.springwater.easybot.bridge.model.ServerInfo;
 import com.springwater.easybot.utils.LoaderUtils;
 import com.springwater.easybot.utils.PlayerInfoUtils;
 import com.springwater.easybot.utils.PlayerUtils;
+import net.minecraft.network.chat.Component;
 
 import java.util.List;
 
 public class BridgeBehaviorImpl implements BridgeBehavior {
+    private static final CommandImpl COMMAND_IMPL = new CommandImpl();
+
     @Override
-    public String runCommand(String s, String s1, boolean b) {
-        return "";
+    public String runCommand(String playerName, String command, boolean enableRcon) {
+        return COMMAND_IMPL.DispatchCommand(command);
     }
 
     @Override
@@ -39,11 +42,12 @@ public class BridgeBehaviorImpl implements BridgeBehavior {
 
     @Override
     public void SyncToChat(String message) {
-
+        EasyBotFabric.getServer().getPlayerList().broadcastSystemMessage(Component.literal(message), false);
     }
 
     @Override
     public void BindSuccessBroadcast(String s, String s1, String s2) {
+
     }
 
     @Override
