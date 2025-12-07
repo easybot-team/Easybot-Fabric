@@ -172,9 +172,6 @@ public class ConfigLoader {
 
     /**
      * 启动自动重载看门狗线程。
-     * <p>
-     * 建议在 Mod 初始化完成（onInitialize）且首次 load() 之后调用。
-     * 该方法会启动一个守护线程，持续监听配置文件变化。
      */
     public static void startAutoReloadWatcher() {
         if (isWatcherRunning.getAndSet(true)) {
@@ -218,12 +215,6 @@ public class ConfigLoader {
 
                     if (needsReload) {
                         LOGGER.info("检测到配置文件变化，准备热重载...");
-
-                        // === 防抖动处理 ===
-                        // 许多编辑器保存文件时会先清空再写入，或者触发多次事件。
-                        // 这里的 sleep 有两个作用：
-                        // 1. 合并短时间内的多次修改事件。
-                        // 2. 等待文件写入流完全关闭，避免读取到不完整的 JSON。
                         try {
                             TimeUnit.MILLISECONDS.sleep(500);
                         } catch (InterruptedException e) {
