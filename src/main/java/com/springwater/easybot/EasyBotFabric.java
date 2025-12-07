@@ -3,9 +3,11 @@ package com.springwater.easybot;
 import com.springwater.easybot.bridge.BridgeClient;
 import com.springwater.easybot.config.ConfigLoader;
 import com.springwater.easybot.config.EasyBotConfig;
+import com.springwater.easybot.features.*;
 import com.springwater.easybot.impl.BridgeBehaviorImpl;
 import com.springwater.easybot.impl.ClientProfileGetterImpl;
 import com.springwater.easybot.logger.Slf4jLoggerAdapter;
+import com.springwater.easybot.threading.EasyBotNetworkingThreadPool;
 import lombok.Getter;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -14,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.List;
 
 //
 // 给开发人员的文档,你可能注意到了代码中的 /*$ mod_id*/ 类似的注释
@@ -35,6 +38,13 @@ public class EasyBotFabric implements ModInitializer {
 
     @Getter
     private static BridgeClient bridgeClient = null;
+
+    private static final List<IEasyBotFeatures> features = List.of(
+            new PlayerLoginFeature(),               // 玩家登陆任务(强制绑定触发器)
+            new LoginEventSyncFeature(),             // 消息同步接口(进入退出)
+            new MessageSyncFeature(),             // 消息同步接口
+            new PlayerDeathSyncFeature()             // 玩家死亡任务(同步消息)
+    );
 
     @Override
     public void onInitialize() throws RuntimeException {
@@ -61,6 +71,11 @@ public class EasyBotFabric implements ModInitializer {
         // 这一步阻塞服务器主线程, 直到配置文件中的Token填入正确
         ConfigLoader.waitForToken();
 
+        EasyBotNetworkingThreadPool.getInstance(); // 这一步仅仅只是为了让线程池初始化资源,为后续上报任务做准备
+
+        // 启动所有功能
+        features.forEach(IEasyBotFeatures::register);
+
         // 用FabricApi获取服务器实例比MinecraftClient.getInstance().getServer()更有兼容性
         // 开发时注意: 尽量调用FabricApi
         ServerLifecycleEvents.SERVER_STARTING.register(serverInstance -> {
@@ -69,6 +84,11 @@ public class EasyBotFabric implements ModInitializer {
             new ClientProfileGetterImpl().BuildClientProfile(serverInstance);
             bridgeClient = new BridgeClient(ConfigLoader.get().getWs(), new BridgeBehaviorImpl());
             bridgeClient.setToken(ConfigLoader.get().getToken()); // 他会自己启动,这里不会阻塞服务器线程
+        });
+
+        ServerLifecycleEvents.SERVER_STOPPED.register(serverInstance -> {
+            EasyBotNetworkingThreadPool.getInstance().shutdown(); // 先关调度器,防止bridge关了之后还发消息
+            bridgeClient.close(); // 调用这个方法bridge就真似了
         });
     }
 

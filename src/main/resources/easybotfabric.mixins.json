@@ -3,6 +3,7 @@
   "package": "com.springwater.easybot.mixin",
   "compatibilityLevel": "${java}",
   "mixins": [
+    "ServerLoginNetworkHandlerAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
