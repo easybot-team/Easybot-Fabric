@@ -1,13 +1,13 @@
 # EasyBot for Fabric
 
 > [!WARNING]  
-> 此项目已启用,请转到通用的[EasyBotMod](https://github.com/easybot-team/easybot-mod)项目
+> 此项目已弃用,请转到通用的[EasyBotMod](https://github.com/easybot-team/easybot-mod)项目
  
 > [!WARNING]  
-> 此项目已启用,请转到通用的[EasyBotMod](https://github.com/easybot-team/easybot-mod)项目
+> 此项目已弃用,请转到通用的[EasyBotMod](https://github.com/easybot-team/easybot-mod)项目
 
 > [!WARNING]  
-> 此项目已启用,请转到通用的[EasyBotMod](https://github.com/easybot-team/easybot-mod)项目
+> 此项目已弃用,请转到通用的[EasyBotMod](https://github.com/easybot-team/easybot-mod)项目
 
 
 [Minecraft](https://img.shields.io/badge/Minecraft-1.19.x%20|%201.20.x-green.svg) ![Fabric API](https://img.shields.io/badge/Fabric%20API-Required-blue.svg) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
