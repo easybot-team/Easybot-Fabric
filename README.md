@@ -1,6 +1,16 @@
 # EasyBot for Fabric
 
-![Minecraft](https://img.shields.io/badge/Minecraft-1.19.x%20|%201.20.x-green.svg) ![Fabric API](https://img.shields.io/badge/Fabric%20API-Required-blue.svg) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+> [!WARNING]  
+> 此项目已启用,请转到通用的[EasyBotMod](https://github.com/easybot-team/easybot-mod)项目
+ 
+> [!WARNING]  
+> 此项目已启用,请转到通用的[EasyBotMod](https://github.com/easybot-team/easybot-mod)项目
+
+> [!WARNING]  
+> 此项目已启用,请转到通用的[EasyBotMod](https://github.com/easybot-team/easybot-mod)项目
+
+
+[Minecraft](https://img.shields.io/badge/Minecraft-1.19.x%20|%201.20.x-green.svg) ![Fabric API](https://img.shields.io/badge/Fabric%20API-Required-blue.svg) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 **EasyBot for Fabric** 是强大地跨平台机器人框架 [EasyBot](https://github.com/easybot-team) 的官方 Fabric 服务端插件。它作为一个桥梁，将您的 Fabric 服务器无缝连接到 EasyBot 主程序，从而实现跨服务器、跨平台（如 QQ 群）的消息同步、数据互通和统一管理。详见[文档](https://docs.inectar.cn/)
 
